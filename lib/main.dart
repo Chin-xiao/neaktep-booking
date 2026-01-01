@@ -1,140 +1,49 @@
 import 'package:flutter/material.dart';
+import 'profile_screen.dart'; 
 
 void main() => runApp(
       const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: HotelHomeScreen(),
+        home: MainNavigation(),
       ),
     );
 
-class HotelHomeScreen extends StatelessWidget {
-  const HotelHomeScreen({super.key});
+class MainNavigation extends StatefulWidget {
+  const MainNavigation({super.key});
+
+  @override
+  State<MainNavigation> createState() => _MainNavigationState();
+}
+
+class _MainNavigationState extends State<MainNavigation> {
+  int _selectedIndex = 0;
+
+  // Function to change tab index
+  void _onTabChanged(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    // List of screens to switch between
+    final List<Widget> _screens = [
+      // Pass the function to the Home screen
+      HotelHomeScreen(onProfileClick: () => _onTabChanged(3)), 
+      const Center(child: Text("My Booking Screen")),
+      const Center(child: Text("Message Screen")),
+      const ProfileScreen(), 
+    ];
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. HEADER SECTION
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                    backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
-                  ),
-                  title: const Text("BunKhmer KTV", style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Row(
-                    children: [
-                      Icon(Icons.location_on, size: 14, color: Colors.grey),
-                      Text(" Phnom Penh"),
-                    ],
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildHeaderIcon(Icons.search),
-                      const SizedBox(width: 8),
-                      _buildHeaderIcon(Icons.notifications_none),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // 2. LOCATION BANNER
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.location_pin, color: Color(0xFF0D47A1)),
-                      SizedBox(width: 12),
-                      Expanded(child: Text("You Can Change Your Location to show nearby villas")),
-                      Icon(Icons.arrow_forward_ios, size: 16),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                _sectionHeader("Most Popular"),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 280,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      _buildPopularCard("The Horizon Retreat", "\$480", "Los Angeles, CA", "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"),
-                      _buildPopularCard("Opal Grove Inn", "\$190", "San Diego, CA", "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=500"),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                _sectionHeader("Recommended for you"),
-                const SizedBox(height: 16),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildCategoryItem("All", Icons.apps, true),
-                      _buildCategoryItem("Villas", Icons.villa, false),
-                      _buildCategoryItem("Hotels", Icons.hotel, false),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-                _buildRecommendedItem("Serenity Sands", "Honolulu, HI", "\$270", 4.0, "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400"),
-                _buildRecommendedItem("Elysian Suites", "San Diego, CA", "\$320", 3.8, "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=400"),
-
-                const SizedBox(height: 24),
-                _sectionHeaderWithAction("Hotel Near You", "Open Map"),
-                const SizedBox(height: 16),
-                Container(
-                  height: 180,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    image: const DecorationImage(
-                      image: NetworkImage('https://i.stack.imgur.com/HILXv.png'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-                _sectionHeader("Best Today 🔥"),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 120,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      // Pass context here!
-                      _buildBestTodayCard(context, "Phnom Penh 51 Hotel", "Daun Penh, Phnom Penh", "\$150", "\$200", "https://images.unsplash.com/photo-1551882547-ff43c63faf7c?w=400"),
-                      _buildBestTodayCard(context, "Sun & Moon Hotel", "Riverside, Phnom Penh", "\$120", "\$180", "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=400"),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-              ],
-            ),
-          ),
-        ),
-      ),
+      body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF3056D3),
+        unselectedItemColor: Colors.grey,
+        currentIndex: _selectedIndex,
+        onTap: _onTabChanged,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.book_online), label: "My Booking"),
@@ -144,12 +53,142 @@ class HotelHomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class HotelHomeScreen extends StatelessWidget {
+  final VoidCallback onProfileClick; // Callback for profile click
+
+  const HotelHomeScreen({super.key, required this.onProfileClick});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. HEADER SECTION
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                // Wrap CircleAvatar with GestureDetector to handle clicks
+                leading: GestureDetector(
+                  onTap: onProfileClick,
+                  child: const CircleAvatar(
+                    backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
+                  ),
+                ),
+                title: const Text("BunKhmer KTV", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: Colors.grey),
+                    Text(" Phnom Penh"),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeaderIcon(Icons.search),
+                    const SizedBox(width: 8),
+                    _buildHeaderIcon(Icons.notifications_none),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // 2. LOCATION BANNER
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.location_pin, color: Color(0xFF0D47A1)),
+                    SizedBox(width: 12),
+                    Expanded(child: Text("You Can Change Your Location to show nearby villas")),
+                    Icon(Icons.arrow_forward_ios, size: 16),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              _sectionHeader("Most Popular"),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 280,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildPopularCard("The Horizon Retreat", "\$480", "Los Angeles, CA", "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500"),
+                    _buildPopularCard("Opal Grove Inn", "\$190", "San Diego, CA", "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=500"),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              _sectionHeader("Recommended for you"),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildCategoryItem("All", Icons.apps, true),
+                    _buildCategoryItem("Villas", Icons.villa, false),
+                    _buildCategoryItem("Hotels", Icons.hotel, false),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              _buildRecommendedItem("Serenity Sands", "Honolulu, HI", "\$270", 4.0, "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400"),
+              _buildRecommendedItem("Elysian Suites", "San Diego, CA", "\$320", 3.8, "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=400"),
+
+              const SizedBox(height: 24),
+              _sectionHeaderWithAction("Hotel Near You", "Open Map"),
+              const SizedBox(height: 16),
+              Container(
+                height: 180,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  image: const DecorationImage(
+                    image: NetworkImage('https://i.stack.imgur.com/HILXv.png'),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              _sectionHeader("Best Today 🔥"),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 120,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _buildBestTodayCard(context, "Phnom Penh 51 Hotel", "Daun Penh, Phnom Penh", "\$150", "\$200", "https://images.unsplash.com/photo-1551882547-ff43c63faf7c?w=400"),
+                    _buildBestTodayCard(context, "Sun & Moon Hotel", "Riverside, Phnom Penh", "\$120", "\$180", "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=400"),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // --- HELPER WIDGETS ---
 
   Widget _buildBestTodayCard(BuildContext context, String name, String location, String price, String oldPrice, String imgUrl) {
     return Container(
-      // context works now because we passed it in!
       width: MediaQuery.of(context).size.width * 0.8,
       margin: const EdgeInsets.only(right: 16),
       padding: const EdgeInsets.all(12),
@@ -188,7 +227,6 @@ class HotelHomeScreen extends StatelessWidget {
     );
   }
 
-  // (All other helper methods remain inside the class)
   Widget _buildHeaderIcon(IconData icon) => Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
