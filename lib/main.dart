@@ -79,7 +79,7 @@ class HotelHomeScreen extends StatelessWidget {
                     backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
                   ),
                 ),
-                title: const Text("BunKhmer KTV", style: TextStyle(fontWeight: FontWeight.bold)),
+                title: const Text("UserAccount", style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Row(
                   children: [
                     Icon(Icons.location_on, size: 14, color: Colors.grey),
