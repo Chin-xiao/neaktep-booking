@@ -5,51 +5,13 @@ void main() => runApp(
         debugShowCheckedModeBanner: false,
         home: HotelHomeScreen(),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
-  }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class HotelHomeScreen extends StatelessWidget {
+  const HotelHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -65,7 +27,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   leading: const CircleAvatar(
                     backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
                   ),
-                  title: const Text("Chhorm Bunthai", style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text("Chhorm BunKhmer KTV", style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: const Row(
                     children: [
                       Icon(Icons.location_on, size: 14, color: Colors.grey),
@@ -225,4 +187,45 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
+
+  // (All other helper methods remain inside the class)
+  Widget _buildHeaderIcon(IconData icon) => Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
+      child: Icon(icon, size: 20));
+
+  Widget _sectionHeader(String title) => Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), const Text("See All", style: TextStyle(color: Colors.blue))]);
+
+  Widget _sectionHeaderWithAction(String title, String action) => Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text(action, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold))]);
+
+  Widget _buildCategoryItem(String title, IconData icon, bool isSelected) => Container(
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: isSelected ? const Color(0xFF3056D3) : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+      child: Row(children: [Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.grey), const SizedBox(width: 8), Text(title, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.w500))]));
+
+  Widget _buildPopularCard(String name, String price, String location, String imgUrl) => Container(
+      width: 220,
+      margin: const EdgeInsets.only(right: 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
+      child: Stack(children: [
+        Image.network(imgUrl, height: double.infinity, width: double.infinity, fit: BoxFit.cover),
+        Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)]))),
+        const Positioned(top: 12, right: 12, child: CircleAvatar(backgroundColor: Colors.white, radius: 15, child: Icon(Icons.favorite, color: Colors.red, size: 16))),
+        Positioned(bottom: 15, left: 15, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), Text(location, style: const TextStyle(color: Colors.white70, fontSize: 12)), const SizedBox(height: 4), Row(children: [Text(price, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const Text("/night", style: TextStyle(color: Colors.white70, fontSize: 10))])]))
+      ]));
+
+  Widget _buildRecommendedItem(String name, String location, String price, double rating, String imgUrl) => Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(children: [
+        ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(imgUrl, width: 80, height: 80, fit: BoxFit.cover)),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), Row(children: [const Icon(Icons.location_on, size: 14, color: Colors.grey), Text(location, style: const TextStyle(color: Colors.grey, fontSize: 12))]), const SizedBox(height: 4), Text("$price /night", style: const TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold))])),
+        Row(children: [const Icon(Icons.star, color: Colors.amber, size: 18), Text(" $rating", style: const TextStyle(fontWeight: FontWeight.bold))])
+      ]));
 }
