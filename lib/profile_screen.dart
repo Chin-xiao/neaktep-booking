@@ -17,23 +17,19 @@ class ProfileScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            // User Info Section
             const CircleAvatar(
               radius: 50,
               backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
             ),
             const SizedBox(height: 15),
-            const Text("User", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const Text("@user", style: TextStyle(color: Colors.grey)),
+            const Text("Chhorm Bunthai", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text("@BunthaiKH", style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 30),
-
-            // Settings List
             _buildSettingItem(Icons.credit_card, "Your Card"),
             _buildSettingItem(Icons.security, "Security"),
             _buildSettingItem(Icons.notifications_none, "Notification"),
             _buildSettingItem(Icons.language, "Languages"),
             _buildSettingItem(Icons.help_outline, "Help and Support"),
-
             const SizedBox(height: 40),
             TextButton(
               onPressed: () {},
