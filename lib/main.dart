@@ -28,7 +28,7 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     // List of screens to switch between
-    final List<Widget> _screens = [
+    final List<Widget> screens = [
       // Pass the function to the Home screen
       HotelHomeScreen(onProfileClick: () => _onTabChanged(3)), 
       const Center(child: Text("My Booking Screen")),
@@ -37,7 +37,7 @@ class _MainNavigationState extends State<MainNavigation> {
     ];
 
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFF3056D3),
@@ -79,7 +79,7 @@ class HotelHomeScreen extends StatelessWidget {
                     backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
                   ),
                 ),
-                title: const Text("UserAccount", style: TextStyle(fontWeight: FontWeight.bold)),
+                title: const Text("User", style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Row(
                   children: [
                     Icon(Icons.location_on, size: 14, color: Colors.grey),

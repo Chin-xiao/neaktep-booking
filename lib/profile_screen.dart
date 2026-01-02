@@ -23,7 +23,7 @@ class ProfileScreen extends StatelessWidget {
               backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
             ),
             const SizedBox(height: 15),
-            const Text("UserAccount", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text("User", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const Text("@user", style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 30),
 
