@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'profile_screen.dart';
-import 'notification_screen.dart';
 
 void main() => runApp(
       const MaterialApp(
@@ -90,10 +89,7 @@ class HotelHomeScreen extends StatelessWidget {
                       icon: _buildHeaderIcon(Icons.search),
                       onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
                     ),
-                    IconButton(
-                      icon: _buildHeaderIcon(Icons.notifications_none),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationScreen())),
-                    ),
+                    _buildHeaderIcon(Icons.notifications_none),
                   ],
                 ),
               ),
