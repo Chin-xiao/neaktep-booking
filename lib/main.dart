@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neak_booking_app/massage_screen.dart';
 import 'profile_screen.dart';
 
 void main() => runApp(
@@ -30,7 +31,7 @@ class _MainNavigationState extends State<MainNavigation> {
     final List<Widget> screens = [
       HotelHomeScreen(onProfileClick: () => _onTabChanged(3)),
       const MyBookingScreen(), // Updated from empty text to full screen
-      const Center(child: Text("Message Screen")),
+      const MessageScreen(),
       const ProfileScreen(),
     ];
 
