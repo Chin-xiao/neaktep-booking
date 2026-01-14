@@ -29,7 +29,7 @@ class _MainNavigationState extends State<MainNavigation> {
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       HotelHomeScreen(onProfileClick: () => _onTabChanged(3)),
-      const Center(child: Text("My Booking Screen")),
+      const MyBookingScreen(), // Updated from empty text to full screen
       const Center(child: Text("Message Screen")),
       const ProfileScreen(),
     ];
@@ -120,7 +120,6 @@ class HotelHomeScreen extends StatelessWidget {
     );
   }
 
-  // Helper UI methods for Home
   Widget _buildHeaderIcon(IconData icon) => Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
@@ -221,7 +220,99 @@ class HotelHomeScreen extends StatelessWidget {
       ]));
 }
 
-// --- SEARCH SCREEN ---
+// --- MY BOOKING SCREEN (Matches image_0fce08.png) ---
+class MyBookingScreen extends StatefulWidget {
+  const MyBookingScreen({super.key});
+
+  @override
+  State<MyBookingScreen> createState() => _MyBookingScreenState();
+}
+
+class _MyBookingScreenState extends State<MyBookingScreen> {
+  bool isBookedSelected = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text("My Booking", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: [IconButton(icon: const Icon(Icons.more_vert, color: Colors.black), onPressed: () {})],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(15)),
+              child: const Row(children: [Icon(Icons.search, color: Colors.grey), Expanded(child: TextField(decoration: InputDecoration(hintText: "Search...", border: InputBorder.none, contentPadding: EdgeInsets.only(left: 10)))), Icon(Icons.tune, color: Colors.grey)]),
+            ),
+            const SizedBox(height: 20),
+            // Custom Toggle
+            Container(
+              height: 50,
+              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(25)),
+              child: Row(
+                children: [
+                  _toggleButton("Booked", isBookedSelected, () => setState(() => isBookedSelected = true)),
+                  _toggleButton("History", !isBookedSelected, () => setState(() => isBookedSelected = false)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ListView(
+                children: [
+                  _buildBookingCard("The Aston Vill Hotel", "Veum Point, Michikoton", "\$120", 4.7, "12 - 14 Nov 2024", "2 Guests (1 Room)", "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400"),
+                  _buildBookingCard("Mystic Palms", "Palm Springs, CA", "\$230", 4.0, "20 - 25 Nov 2024", "1 Guest (1 Room)", "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=400"),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _toggleButton(String title, bool isSelected, VoidCallback onTap) => Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: isSelected ? Colors.white : Colors.transparent, borderRadius: BorderRadius.circular(25), boxShadow: isSelected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)] : []),
+            child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.black : Colors.grey)),
+          ),
+        ),
+      );
+
+  Widget _buildBookingCard(String name, String loc, String price, double rate, String dates, String guests, String img) => Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.shade200)),
+        child: Row(children: [
+          ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(img, width: 90, height: 110, fit: BoxFit.cover)),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), overflow: TextOverflow.ellipsis)), Icon(Icons.star, color: Colors.amber, size: 14), Text(" $rate")]),
+            Text(loc, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+            const SizedBox(height: 5),
+            Text.rich(TextSpan(text: price, style: const TextStyle(color: Color(0xFF3056D3), fontWeight: FontWeight.bold, fontSize: 16), children: const [TextSpan(text: " /night", style: TextStyle(color: Colors.grey, fontSize: 11))])),
+            const Divider(),
+            _bookingRow(Icons.calendar_today_outlined, "Dates", dates),
+            _bookingRow(Icons.person_outline, "Guest", guests),
+          ]))
+        ]),
+      );
+
+  Widget _bookingRow(IconData icon, String label, String value) => Row(children: [Icon(icon, size: 12, color: Colors.grey), const SizedBox(width: 5), Text(label, style: const TextStyle(color: Colors.grey, fontSize: 11)), const Spacer(), Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))]);
+}
+
+// --- SEARCH SCREEN (Matches image_d14f29.png) ---
 class SearchScreen extends StatelessWidget {
   const SearchScreen({super.key});
 
@@ -239,11 +330,12 @@ class SearchScreen extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Column(children: [
-          const SizedBox(height: 10),
           _buildSearchBar(context),
           const SizedBox(height: 20),
-          Expanded(child: ListView(children: [
-            _buildLargeCard("Citadines Flatiron", "Phnom Penh Centre", "\$290", 4.9, "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=600"),
+          Expanded(
+              child: ListView(children: [
+            _buildLargeSearchCard("Citadines Flatiron", "Street 102, Phnom Penh", "\$290", 4.9, "3 bed", "2 bathroom", "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=600"),
+            _buildLargeSearchCard("Sensory Park Urban", "32 Samdach Louis Em St.", "\$180", 4.8, "2 bed", "3 bathroom", "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=600"),
           ]))
         ]),
       ),
@@ -256,79 +348,40 @@ class SearchScreen extends StatelessWidget {
       child: Row(children: [
         const Icon(Icons.search, color: Colors.grey),
         const Expanded(child: TextField(decoration: InputDecoration(hintText: "Search...", border: InputBorder.none))),
-        IconButton(icon: const Icon(Icons.tune, color: Colors.grey), onPressed: () => _showFilterModal(context)),
+        IconButton(icon: const Icon(Icons.tune, color: Color(0xFF3056D3)), onPressed: () => _showFilterModal(context))
       ]));
 
-  Widget _buildLargeCard(String name, String loc, String price, double rate, String img) => Column(
+  Widget _buildLargeSearchCard(String name, String loc, String price, double rate, String bed, String bath, String img) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.network(img, height: 220, width: double.infinity, fit: BoxFit.cover)),
+          Stack(children: [
+            ClipRRect(borderRadius: BorderRadius.circular(24), child: Image.network(img, height: 200, width: double.infinity, fit: BoxFit.cover)),
+            Positioned(top: 15, left: 15, child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: Colors.black38, borderRadius: BorderRadius.circular(8)), child: Row(children: [const Icon(Icons.star, color: Colors.amber, size: 14), Text(" $rate", style: const TextStyle(color: Colors.white, fontSize: 12))]))),
+            const Positioned(top: 15, right: 15, child: CircleAvatar(backgroundColor: Colors.white30, radius: 18, child: Icon(Icons.favorite_border, color: Colors.white, size: 18))),
+          ]),
           const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text(price, style: const TextStyle(color: Color(0xFF3056D3), fontWeight: FontWeight.bold))]),
-          Text(loc, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 20),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)), Text(price, style: const TextStyle(color: Color(0xFF3056D3), fontSize: 18, fontWeight: FontWeight.bold))]),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(loc, style: const TextStyle(color: Colors.grey, fontSize: 12)), const Text("Per Night", style: TextStyle(color: Colors.grey, fontSize: 11))]),
+          const SizedBox(height: 8),
+          Row(children: [const Icon(Icons.king_bed_outlined, color: Colors.grey, size: 18), Text(" $bed  •  ", style: const TextStyle(color: Colors.grey, fontSize: 12)), const Icon(Icons.bathtub_outlined, color: Colors.grey, size: 18), Text(" $bath", style: const TextStyle(color: Colors.grey, fontSize: 12))]),
+          const SizedBox(height: 24),
         ],
       );
 
-  // --- FILTER MODAL (MATCHES PIC 4) ---
   void _showFilterModal(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-    builder: (context) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
-            const SizedBox(height: 20),
-            const Center(child: Text("Filter By", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-            const SizedBox(height: 20),
-            const Text("Price", style: TextStyle(fontWeight: FontWeight.bold)),
-            RangeSlider(values: const RangeValues(0, 80), max: 100, divisions: 10, onChanged: (v) {}),
-            const SizedBox(height: 20),
-            const Text("Location", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              children: [
-                _buildChoiceChip("Sen Sok", true),
-                _buildChoiceChip("Daun Penh", false),
-                _buildChoiceChip("Phnom Penh", false),
-              ],
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3056D3),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Apply Filter", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
-        ),
-      );
-    },
-  );
-}
-
-Widget _buildChoiceChip(String label, bool isSelected) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-    decoration: BoxDecoration(
-      color: isSelected ? const Color(0xFF3056D3) : Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: isSelected ? Colors.transparent : Colors.grey.shade200),
-    ),
-    child: Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.black)),
-  );
-}
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+        builder: (context) => Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Center(child: Text("Filter By", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+              const SizedBox(height: 20),
+              const Text("Price Range", style: TextStyle(fontWeight: FontWeight.bold)),
+              RangeSlider(values: const RangeValues(20, 80), max: 100, activeColor: const Color(0xFF3056D3), onChanged: (v) {}),
+              const SizedBox(height: 20),
+              SizedBox(width: double.infinity, height: 50, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3056D3), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), onPressed: () => Navigator.pop(context), child: const Text("Apply Filter", style: TextStyle(color: Colors.white)))),
+            ])));
+  }
 }
