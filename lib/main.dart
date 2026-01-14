@@ -46,7 +46,7 @@ class _MainNavigationState extends State<MainNavigation> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.book_online), label: "My Booking"),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: "Message"),
+          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: "Message"),djdfghsgdfsdty
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profile"),
         ],
       ),
