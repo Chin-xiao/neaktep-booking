@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'components/safe_network_image.dart';
+
 // --- PART 1: MESSAGE LIST SCREEN ---
 class MessageScreen extends StatelessWidget {
   const MessageScreen({super.key});
@@ -244,11 +246,10 @@ class ChatDetailScreen extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=200',
+            child: SafeNetworkImage(
+              url: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=200&q=80',
               width: 60,
               height: 60,
-              fit: BoxFit.cover,
             ),
           ),
           const SizedBox(width: 12),
