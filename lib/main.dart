@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'profile_screen.dart';
 import 'massage_screen.dart'; // Ensure filename is exactly this
 import 'search_screen.dart';
+import 'notification_detail_screen.dart';
+import 'all_notifications_screen.dart';
 // import 'my_booking_screen.dart'; // Uncomment if this is a separate file
 
 void main() => runApp(
@@ -70,80 +72,209 @@ class _MainNavigationState extends State<MainNavigation> {
 }
 
 // --- HOME SCREEN ---
-class HotelHomeScreen extends StatelessWidget {
+class HotelHomeScreen extends StatefulWidget {
   final VoidCallback onProfileClick;
   const HotelHomeScreen({super.key, required this.onProfileClick});
 
   @override
+  State<HotelHomeScreen> createState() => _HotelHomeScreenState();
+}
+
+class _HotelHomeScreenState extends State<HotelHomeScreen> {
+  bool _showNotificationDropdown = false;
+
+  @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: GestureDetector(
-                  onTap: onProfileClick,
-                  child: const CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?img=11',
-                    ),
-                  ),
-                ),
-                title: const Text(
-                  "Chhorm Bunthai",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: const Row(
-                  children: [
-                    Icon(Icons.location_on, size: 14, color: Colors.grey),
-                    Text(" Phnom Penh"),
-                  ],
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: _buildHeaderIcon(Icons.search),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SearchScreen(),
+      child: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: GestureDetector(
+                      onTap: widget.onProfileClick,
+                      child: const CircleAvatar(
+                        backgroundImage: NetworkImage(
+                          'https://i.pravatar.cc/150?img=11',
                         ),
                       ),
                     ),
-                    _buildHeaderIcon(Icons.notifications_none),
-                  ],
+                    title: const Text(
+                      "Chhorm Bunthai",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: const Row(
+                      children: [
+                        Icon(Icons.location_on, size: 14, color: Colors.grey),
+                        Text(" Phnom Penh"),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: _buildHeaderIcon(Icons.search),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SearchScreen(),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _showNotificationDropdown = !_showNotificationDropdown;
+                            });
+                          },
+                          child: _buildNotificationIcon(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _buildLocationBanner(),
+                  const SizedBox(height: 24),
+                  _sectionHeader("Most Popular"),
+                  const SizedBox(height: 16),
+                  _buildPopularList(),
+                  const SizedBox(height: 24),
+                  _sectionHeader("Recommended for you"),
+                  const SizedBox(height: 16),
+                  _buildCategoryRow(),
+                  const SizedBox(height: 20),
+                  _buildRecommendedItem(
+                    "Serenity Sands",
+                    "Honolulu, HI",
+                    "\$270",
+                    4.0,
+                    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400",
+                  ),
+                  const SizedBox(height: 24),
+                  _sectionHeader("Best Today 🔥"),
+                  const SizedBox(height: 16),
+                  _buildBestTodayList(context),
+                ],
+              ),
+            ),
+          ),
+          // Notification Dropdown
+          if (_showNotificationDropdown)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showNotificationDropdown = false;
+                });
+              },
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.3),
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 75, right: 16),
+                    width: 300,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(color: Colors.grey, width: 0.5),
+                              ),
+                            ),
+                            child: const Text(
+                              "Notifications",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          _buildNotificationItem(
+                            "Booking Confirmed",
+                            "Your booking for Serenity Sands has been confirmed!",
+                            Icons.check_circle,
+                            Colors.green,
+                            "5 minutes ago",
+                            "Your booking for Serenity Sands Resort has been successfully confirmed. Check-in date: January 25, 2026. Check-out date: January 28, 2026. Booking ID: #BS2026001",
+                          ),
+                          const Divider(height: 1),
+                          _buildNotificationItem(
+                            "Special Offer",
+                            "Get 20% off on selected villas this week",
+                            Icons.local_offer,
+                            Colors.orange,                            "2 hours ago",
+                            "Limited time offer! Enjoy 20% discount on all premium villa bookings this week. Use promo code: VILLA20. Offer valid until January 24, 2026.",                          ),
+                          const Divider(height: 1),
+                          _buildNotificationItem(
+                            "New Message",
+                            "You have a new message from Phnom Penh Hotel",
+                            Icons.mail,
+                            Colors.blue,                            "1 day ago",
+                            "Phnom Penh Hotel has sent you a message regarding your upcoming reservation. They have special amenities available for your stay.",                          ),
+                          const Divider(height: 1),
+                          _buildNotificationItem(
+                            "Review Request",
+                            "How was your stay? Please leave a review",
+                            Icons.star,
+                            Colors.amber,                            "3 days ago",
+                            "We hope you enjoyed your recent stay at Ocean View Resort. Your feedback helps us improve our services. Please take a moment to rate your experience.",                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF3056D3),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _showNotificationDropdown = false;
+                                  });
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const AllNotificationsScreen(),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  "View All",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 20),
-              _buildLocationBanner(),
-              const SizedBox(height: 24),
-              _sectionHeader("Most Popular"),
-              const SizedBox(height: 16),
-              _buildPopularList(),
-              const SizedBox(height: 24),
-              _sectionHeader("Recommended for you"),
-              const SizedBox(height: 16),
-              _buildCategoryRow(),
-              const SizedBox(height: 20),
-              _buildRecommendedItem(
-                "Serenity Sands",
-                "Honolulu, HI",
-                "\$270",
-                4.0,
-                "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400",
-              ),
-              const SizedBox(height: 24),
-              _sectionHeader("Best Today 🔥"),
-              const SizedBox(height: 16),
-              _buildBestTodayList(context),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -155,6 +286,119 @@ class HotelHomeScreen extends StatelessWidget {
       border: Border.all(color: Colors.grey.shade200),
     ),
     child: Icon(icon, size: 20),
+  );
+
+  Widget _buildNotificationIcon() => AnimatedScale(
+    scale: _showNotificationDropdown ? 1.18 : 1.0,
+    duration: const Duration(milliseconds: 180),
+    curve: Curves.easeOutBack,
+    child: AnimatedSlide(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      offset: _showNotificationDropdown ? const Offset(0, -0.05) : Offset.zero,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _showNotificationDropdown
+              ? const Color(0xFF3056D3).withOpacity(0.16)
+              : Colors.white,
+          border: Border.all(
+            color: _showNotificationDropdown
+                ? const Color(0xFF3056D3)
+                : Colors.grey.shade200,
+          ),
+          boxShadow: _showNotificationDropdown
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF3056D3).withOpacity(0.28),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : [],
+        ),
+        child: Icon(
+          _showNotificationDropdown
+              ? Icons.notifications
+              : Icons.notifications_none,
+          size: 20,
+          color: _showNotificationDropdown
+              ? const Color(0xFF3056D3)
+              : Colors.black,
+        ),
+      ),
+    ),
+  );
+
+  Widget _buildNotificationItem(
+    String title,
+    String message,
+    IconData icon,
+    Color iconColor,
+    String timestamp,
+    String detailedDescription,
+  ) => InkWell(
+    onTap: () {
+      setState(() {
+        _showNotificationDropdown = false;
+      });
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => NotificationDetailScreen(
+            title: title,
+            message: message,
+            icon: icon,
+            iconColor: iconColor,
+            timestamp: timestamp,
+            detailedDescription: detailedDescription,
+          ),
+        ),
+      );
+    },
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 
   Widget _sectionHeader(String title) => Row(
