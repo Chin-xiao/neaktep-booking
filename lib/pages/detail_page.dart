@@ -48,7 +48,12 @@ class _DetailPageState extends State<DetailPage> {
                   children: [_buildHeroImage(hotel), _buildDetailCard(hotel)],
                 ),
               ),
-              _buildTopBar(context),
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildTopBar(context),
+              ),
               if (isLoading)
                 const Positioned(
                   top: 0,
