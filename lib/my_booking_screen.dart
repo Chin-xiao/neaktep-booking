@@ -76,6 +76,34 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                     "2 Guests (1 Room)",
                     "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400",
                   ),
+                  // Add more booking cards here
+                  _buildBookingCard(
+                    "Ocean Breeze Resort",
+                    "Miami Beach, FL",
+                    "\$450",
+                    4.9,
+                    "10 - 15 Dec 2024",
+                    "3 Guests (2 Rooms)",
+                    "https://images.unsplash.com/photo-1506748686214-e9df14d4d9d0?w=400",
+                  ),
+                  _buildBookingCard(
+                    "Mountain Escape Lodge",
+                    "Aspen, CO",
+                    "\$380",
+                    4.5,
+                    "18 - 22 Dec 2024",
+                    "4 Guests (2 Rooms)",
+                    "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=400",
+                  ),
+                  _buildBookingCard(
+                    "City Lights Hotel",
+                    "New York, NY",
+                    "\$500",
+                    4.8,
+                    "25 - 30 Dec 2024",
+                    "2 Guests (1 Room)",
+                    "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=400",
+                  ),
                 ],
               ),
             ),
@@ -128,7 +156,12 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                   color: isBookedSelected ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(25),
                   boxShadow: isBookedSelected
-                      ? [BoxShadow(color: Colors.black.withValues(alpha:0.05), blurRadius: 5)]
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 5,
+                          ),
+                        ]
                       : [],
                 ),
                 child: Text(
@@ -150,7 +183,12 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                   color: !isBookedSelected ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(25),
                   boxShadow: !isBookedSelected
-                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)]
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 5,
+                          ),
+                        ]
                       : [],
                 ),
                 child: Text(
@@ -168,7 +206,15 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
     );
   }
 
-  Widget _buildBookingCard(String name, String loc, String price, double rate, String dates, String guests, String img) {
+  Widget _buildBookingCard(
+    String name,
+    String loc,
+    String price,
+    double rate,
+    String dates,
+    String guests,
+    String img,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
@@ -181,7 +227,12 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(img, width: 90, height: 110, fit: BoxFit.cover),
+            child: Image.network(
+              img,
+              width: 90,
+              height: 110,
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -192,12 +243,22 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     Row(
                       children: [
                         const Icon(Icons.star, color: Colors.amber, size: 16),
-                        Text(" $rate", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          " $rate",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ],
                     ),
                   ],
@@ -206,37 +267,77 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
                 Row(
                   children: [
                     const Icon(Icons.location_on, size: 14, color: Colors.grey),
-                    Text(loc, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(
+                      loc,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text.rich(
                   TextSpan(
                     text: price,
-                    style: const TextStyle(color: Color(0xFF3056D3), fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      color: Color(0xFF3056D3),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                     children: const [
-                      TextSpan(text: " /night", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.normal, fontSize: 12)),
+                      TextSpan(
+                        text: " /night",
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontWeight: FontWeight.normal,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const Divider(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 8),
-                    const Text("Dates", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    const Text(
+                      "Dates",
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                     const Spacer(),
-                    Text(dates, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
+                    Text(
+                      dates,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.person_outline, size: 14, color: Colors.grey),
+                    const Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                     const SizedBox(width: 8),
-                    const Text("Guest", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    const Text(
+                      "Guest",
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                     const Spacer(),
-                    Text(guests, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
+                    Text(
+                      guests,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ],
