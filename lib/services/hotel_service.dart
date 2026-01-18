@@ -25,6 +25,47 @@ class HotelService {
     );
   }
 
+  Future<List<Hotel>> searchHotels({
+    required String query,
+    required FilterState filters,
+  }) async {
+    await _simulateLatency();
+    final lower = query.trim().toLowerCase();
+
+    bool matchesQuery(Hotel hotel) {
+      return lower.isEmpty ||
+          hotel.name.toLowerCase().contains(lower) ||
+          hotel.location.toLowerCase().contains(lower);
+    }
+
+    bool supportsInstantBook(Hotel hotel) {
+      return hotel.facilities.contains('24-Hours Front Desk');
+    }
+
+    final filtered = demoHotels.where((hotel) {
+      final withinPrice =
+          hotel.price >= filters.priceRange.start &&
+          hotel.price <= filters.priceRange.end;
+      final meetsRating = hotel.rating >= filters.rating;
+      final matchesFacilities = filters.facilities.every(
+        (facility) => hotel.facilities.contains(facility),
+      );
+      final matchesLocation =
+          filters.location.isEmpty ||
+          hotel.location.toLowerCase().contains(filters.location.toLowerCase());
+      final matchesInstant = !filters.instantBook || supportsInstantBook(hotel);
+      return matchesQuery(hotel) &&
+          withinPrice &&
+          meetsRating &&
+          matchesFacilities &&
+          matchesLocation &&
+          matchesInstant;
+    }).toList();
+
+    filtered.sort((a, b) => a.price.compareTo(b.price));
+    return filtered;
+  }
+
   Future<FilterOptions> fetchFilterOptions() async {
     await _simulateLatency();
     return const FilterOptions(
@@ -110,12 +151,16 @@ const List<Hotel> demoHotels = [
     location: 'Honolulu, HI',
     rating: 4.0,
     price: 270,
-    imageUrl:
-        'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900',
+    imageUrl: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900',
     description:
         'Beachfront calm with ocean-view balconies, open-air dining, and a '
         'sunlit pool deck.',
-    facilities: ['Free Wifi', 'Swimming Pool', 'Restaurant', '24-Hours Front Desk'],
+    facilities: [
+      'Free Wifi',
+      'Swimming Pool',
+      'Restaurant',
+      '24-Hours Front Desk',
+    ],
     mapImageUrl:
         'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?w=800',
   ),
@@ -125,8 +170,7 @@ const List<Hotel> demoHotels = [
     location: 'Veum Point, Michikoton',
     rating: 4.6,
     price: 120,
-    imageUrl:
-        'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900',
+    imageUrl: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=900',
     description:
         'The ideal place for those looking for a luxurious and tranquil holiday '
         'experience with stunning sea views.',
@@ -141,11 +185,16 @@ const List<Hotel> demoHotels = [
     rating: 4.0,
     price: 230,
     imageUrl:
-        'https://images.unsplash.com/photo-1501117716987-c8e1ecb210c7?w=900',
+        'https://smuhg.b-cdn.net/wp-content/uploads/2025/10/EXCELLENCE-01-scaled.jpg',
     description:
         'A vibrant city stay with rooftop views, smart rooms, and quick access '
         'to riverside dining.',
-    facilities: ['Free Wifi', 'Restaurant', 'Swimming Pool', '24-Hours Front Desk'],
+    facilities: [
+      'Free Wifi',
+      'Restaurant',
+      'Swimming Pool',
+      '24-Hours Front Desk',
+    ],
     mapImageUrl:
         'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?w=800',
   ),
@@ -186,13 +235,15 @@ const List<Review> demoReviews = [
     name: 'Kim Borrdy',
     avatarUrl: 'https://i.pravatar.cc/150?img=48',
     rating: 4.5,
-    comment: 'Amazing! The room is good than the picture. Thanks for amazing experience!',
+    comment:
+        'Amazing! The room is good than the picture. Thanks for amazing experience!',
   ),
   Review(
     name: 'Mirai Kamazuki',
     avatarUrl: 'https://i.pravatar.cc/150?img=11',
     rating: 5.0,
-    comment: 'The service is on point, and I really like the facilities. Good job!',
+    comment:
+        'The service is on point, and I really like the facilities. Good job!',
   ),
   Review(
     name: 'Jzenklen',
@@ -254,10 +305,7 @@ const List<FacilityGroup> facilityGroups = [
   ),
   FacilityGroup(
     title: 'Hotel Service',
-    items: [
-      'Laundry service',
-      'Room service',
-    ],
+    items: ['Laundry service', 'Room service'],
   ),
   FacilityGroup(
     title: 'Business Facilities',
@@ -285,19 +333,9 @@ const List<FacilityGroup> facilityGroups = [
   ),
   FacilityGroup(
     title: 'Kids',
-    items: [
-      'Kids pool',
-      'Baby cot on request',
-      'Kids menu',
-    ],
+    items: ['Kids pool', 'Baby cot on request', 'Kids menu'],
   ),
-  FacilityGroup(
-    title: 'Connectivity',
-    items: [
-      'Free Wifi',
-      'Smart TV',
-    ],
-  ),
+  FacilityGroup(title: 'Connectivity', items: ['Free Wifi', 'Smart TV']),
   FacilityGroup(
     title: 'Public Facilities',
     items: [
