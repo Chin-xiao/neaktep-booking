@@ -1,13 +1,33 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart';
 import 'massage_screen.dart'; // Ensure filename is exactly this
+import 'profile_screen.dart';
+import 'routes/app_routes.dart';
+import 'services/hotel_service.dart';
+import 'utils/app_colors.dart';
+import 'utils/models.dart';
 import 'search_screen.dart';
 import 'notification_detail_screen.dart';
 import 'all_notifications_screen.dart';
 // import 'my_booking_screen.dart'; // Uncomment if this is a separate file
 
 void main() => runApp(
-  const MaterialApp(debugShowCheckedModeBanner: false, home: MainNavigation()),
+  MaterialApp(
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      scaffoldBackgroundColor: AppColors.background,
+      colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        titleTextStyle: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    ),
+    home: const MainNavigation(),
+  ),
 );
 
 // --- NAVIGATION WRAPPER (Optimized with IndexedStack) ---
@@ -47,7 +67,7 @@ class _MainNavigationState extends State<MainNavigation> {
       body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF3056D3),
+        selectedItemColor: AppColors.primary,
         unselectedItemColor: Colors.grey,
         currentIndex: _selectedIndex,
         onTap: _onTabChanged,
@@ -76,6 +96,13 @@ class HotelHomeScreen extends StatefulWidget {
   final VoidCallback onProfileClick;
   const HotelHomeScreen({super.key, required this.onProfileClick});
 
+  Hotel _findHotel(String id) {
+    return demoHotels.firstWhere(
+      (hotel) => hotel.id == id,
+      orElse: () => demoHotels.first,
+    );
+  }
+
   @override
   State<HotelHomeScreen> createState() => _HotelHomeScreenState();
 }
@@ -85,6 +112,13 @@ class _HotelHomeScreenState extends State<HotelHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final popularHotels = [
+      _findHotel('horizon-retreat'),
+      _findHotel('opal-grove'),
+    ];
+    final recommendedHotel = _findHotel('serenity-sands');
+    final bestTodayHotel = _findHotel('phnom-penh-51');
+
     return SafeArea(
       child: Stack(
         children: [
@@ -137,6 +171,24 @@ class _HotelHomeScreenState extends State<HotelHomeScreen> {
                       ],
                     ),
                   ),
+                ),
+                title: const Text(
+                  "Chhorm Bunthai",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Row(
+                  children: [
+                    Icon(Icons.location_on, size: 14, color: Colors.grey),
+                    Text(" Phnom Penh"),
+                  ],
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: _buildHeaderIcon(Icons.search),
+                      onPressed: () =>
+                          Navigator.push(context, AppRoutes.toSearch()),
                   const SizedBox(height: 20),
                   _buildLocationBanner(),
                   const SizedBox(height: 24),
@@ -273,6 +325,25 @@ class _HotelHomeScreenState extends State<HotelHomeScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+              _buildLocationBanner(),
+              const SizedBox(height: 24),
+              _sectionHeader("Most Popular"),
+              const SizedBox(height: 16),
+              _buildPopularList(context, popularHotels),
+              const SizedBox(height: 24),
+              _sectionHeader("Recommended for you"),
+              const SizedBox(height: 16),
+              _buildCategoryRow(),
+              const SizedBox(height: 20),
+              _buildRecommendedItem(context, recommendedHotel),
+              const SizedBox(height: 24),
+              _sectionHeader("Best Today"),
+              const SizedBox(height: 16),
+              _buildBestTodayList(context, bestTodayHotel),
+            ],
+          ),
+        ),
             ),
         ],
       ),
@@ -428,100 +499,94 @@ class _HotelHomeScreenState extends State<HotelHomeScreen> {
     ),
   );
 
-  Widget _buildPopularList() => SizedBox(
-    height: 280,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      children: [
-        _buildPopularCard(
-          "The Horizon Retreat",
-          "\$480",
-          "Los Angeles, CA",
-          "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=500",
+  Widget _buildPopularList(BuildContext context, List<Hotel> hotels) =>
+      SizedBox(
+        height: 280,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: hotels
+              .map((hotel) => _buildPopularCard(context, hotel))
+              .toList(),
         ),
-        _buildPopularCard(
-          "Opal Grove Inn",
-          "\$190",
-          "San Diego, CA",
-          "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=500",
-        ),
-      ],
-    ),
-  );
+      );
 
-  Widget _buildPopularCard(
-    String name,
-    String price,
-    String location,
-    String imgUrl,
-  ) => Container(
+  Widget _buildPopularCard(BuildContext context, Hotel hotel) => Container(
     width: 220,
     margin: const EdgeInsets.only(right: 16),
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
-    child: Stack(
-      children: [
-        Image.network(
-          imgUrl,
-          height: double.infinity,
-          width: double.infinity,
-          fit: BoxFit.cover,
-        ),
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
+      child: Stack(
+        children: [
+          Hero(
+            tag: 'hotel-${hotel.id}',
+            child: Image.network(
+              hotel.imageUrl,
+              height: double.infinity,
+              width: double.infinity,
+              fit: BoxFit.cover,
             ),
           ),
-        ),
-        const Positioned(
-          top: 12,
-          right: 12,
-          child: CircleAvatar(
-            backgroundColor: Colors.white,
-            radius: 15,
-            child: Icon(Icons.favorite, color: Colors.red, size: 16),
-          ),
-        ),
-        Positioned(
-          bottom: 15,
-          left: 15,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                location,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    price,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Text(
-                    "/night",
-                    style: TextStyle(color: Colors.white70, fontSize: 10),
-                  ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.8),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const Positioned(
+            top: 12,
+            right: 12,
+            child: CircleAvatar(
+              backgroundColor: Colors.white,
+              radius: 15,
+              child: Icon(Icons.favorite, color: Colors.red, size: 16),
+            ),
+          ),
+          Positioned(
+            bottom: 15,
+            left: 15,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hotel.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  hotel.location,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(
+                      '\$${hotel.price}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Text(
+                      "/night",
+                      style: TextStyle(color: Colors.white70, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -564,152 +629,150 @@ class _HotelHomeScreenState extends State<HotelHomeScreen> {
         ),
       );
 
-  Widget _buildRecommendedItem(
-    String name,
-    String location,
-    String price,
-    double rating,
-    String imgUrl,
-  ) => Padding(
+  Widget _buildRecommendedItem(BuildContext context, Hotel hotel) => Padding(
     padding: const EdgeInsets.only(bottom: 16.0),
-    child: Row(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.network(
-            imgUrl,
-            width: 80,
-            height: 80,
-            fit: BoxFit.cover,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
+      child: Row(
+        children: [
+          Hero(
+            tag: 'hotel-${hotel.id}',
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                hotel.imageUrl,
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.location_on, size: 14, color: Colors.grey),
-                  Text(
-                    location,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hotel.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "$price /night",
-                style: const TextStyle(
-                  color: Color(0xFF0D47A1),
-                  fontWeight: FontWeight.bold,
                 ),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                    Text(
+                      hotel.location,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "\$${hotel.price} /night",
+                  style: const TextStyle(
+                    color: Color(0xFF0D47A1),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              const Icon(Icons.star, color: Colors.amber, size: 18),
+              Text(
+                " ${hotel.rating.toStringAsFixed(1)}",
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
-        ),
-        Row(
-          children: [
-            const Icon(Icons.star, color: Colors.amber, size: 18),
-            Text(
-              " $rating",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ],
+        ],
+      ),
     ),
   );
 
-  Widget _buildBestTodayList(BuildContext context) => SizedBox(
+  Widget _buildBestTodayList(BuildContext context, Hotel hotel) => SizedBox(
     height: 120,
     child: ListView(
       scrollDirection: Axis.horizontal,
-      children: [
-        _buildBestTodayCard(
-          context,
-          "Phnom Penh 51 Hotel",
-          "Daun Penh, PP",
-          "\$150",
-          "\$200",
-          "https://images.unsplash.com/photo-1551882547-ff43c63faf7c?w=400",
-        ),
-      ],
+      children: [_buildBestTodayCard(context, hotel, "\$200")],
     ),
   );
 
-  Widget _buildBestTodayCard(
-    BuildContext context,
-    String name,
-    String loc,
-    String price,
-    String old,
-    String img,
-  ) => Container(
-    width: MediaQuery.of(context).size.width * 0.8,
-    margin: const EdgeInsets.only(right: 16),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.grey.shade100),
-    ),
-    child: Row(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(img, width: 70, height: 70, fit: BoxFit.cover),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+  Widget _buildBestTodayCard(BuildContext context, Hotel hotel, String old) =>
+      InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          margin: const EdgeInsets.only(right: 16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade100),
+          ),
+          child: Row(
             children: [
-              Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                loc,
-                style: const TextStyle(color: Colors.grey, fontSize: 10),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    price,
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Hero(
+                tag: 'hotel-${hotel.id}',
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    hotel.imageUrl,
+                    width: 70,
+                    height: 70,
+                    fit: BoxFit.cover,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    old,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 10,
-                      decoration: TextDecoration.lineThrough,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      hotel.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                    Text(
+                      hotel.location,
+                      style: const TextStyle(color: Colors.grey, fontSize: 10),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '\$${hotel.price}',
+                          style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          old,
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 10,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-      ],
-    ),
-  );
+      );
 }
 
 // --- MY BOOKING SCREEN ---

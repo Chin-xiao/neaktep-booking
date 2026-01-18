@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'components/safe_network_image.dart';
+
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -207,7 +209,11 @@ class _SearchScreenState extends State<SearchScreen> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(24),
-          child: Image.network(img, height: 200, width: double.infinity, fit: BoxFit.cover),
+          child: SafeNetworkImage(
+            url: img,
+            height: 200,
+            width: double.infinity,
+          ),
         ),
         const SizedBox(height: 12),
         Row(
