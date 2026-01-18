@@ -15,11 +15,11 @@ class MessageScreen extends StatelessWidget {
         "img": 'https://i.pravatar.cc/150?img=11',
       },
       {
-        "name": "Ms. Sokry",
-        "msg": "Yes! please take a order",
+        "name": "Pes Sokry",
+        "msg": "I love the room you booked for me",
         "time": "9:28 Am",
-        "unread": 0,
-        "img": 'https://i.pravatar.cc/150?img=5',
+        "unread": 2,
+        "img": 'https://i.pinimg.com/736x/96/d4/06/96d40619e2625fa03784e3bb1d273857.jpg',
       },
       {
         "name": "Mr. SoKheng",
