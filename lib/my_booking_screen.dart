@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'components/safe_network_image.dart';
+
 class MyBookingScreen extends StatefulWidget {
   const MyBookingScreen({super.key});
 
@@ -227,12 +229,7 @@ class _MyBookingScreenState extends State<MyBookingScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              img,
-              width: 90,
-              height: 110,
-              fit: BoxFit.cover,
-            ),
+            child: SafeNetworkImage(url: img, width: 90, height: 110),
           ),
           const SizedBox(width: 12),
           Expanded(
