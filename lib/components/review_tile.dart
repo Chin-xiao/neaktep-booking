@@ -1,67 +1,76 @@
 import 'package:flutter/material.dart';
-
-import '../utils/app_colors.dart';
+import 'package:intl/intl.dart';
 import '../utils/models.dart';
+import '../utils/app_colors.dart';
+import 'safe_network_image.dart';
 
 class ReviewTile extends StatelessWidget {
   final Review review;
-  final bool dense;
 
-  const ReviewTile({
-    super.key,
-    required this.review,
-    this.dense = false,
-  });
+  const ReviewTile({super.key, required this.review});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: dense ? 18 : 22,
-          backgroundImage: NetworkImage(review.avatarUrl),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Colors.grey[200],
+              child: ClipOval(
+                child: SafeNetworkImage(
+                  url: review.userAvatar, 
+                  width: 44, 
+                  height: 44,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      review.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    review.userName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                   ),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 16),
-                      Text(
-                        review.rating.toStringAsFixed(1),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  Text(
+                    DateFormat('MMM dd, yyyy').format(review.createdAt),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                review.comment,
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: dense ? 12 : 13,
-                  height: 1.35,
-                ),
+            ),
+            // Rating badge for the specific review
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  const Icon(Icons.star, color: Colors.amber, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    review.rating.toString(),
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          review.comment,
+          style: TextStyle(color: Colors.grey[700], height: 1.5),
         ),
       ],
     );

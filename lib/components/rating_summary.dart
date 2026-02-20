@@ -1,92 +1,104 @@
 import 'package:flutter/material.dart';
-
 import '../utils/app_colors.dart';
 import '../utils/models.dart';
 
 class RatingSummaryCard extends StatelessWidget {
-  final RatingSummary summary;
+  // ✅ This matches the call: return RatingSummaryCard(summary: snapshot.data!)
+  final RatingSummary summary; 
 
   const RatingSummaryCard({super.key, required this.summary});
 
   @override
   Widget build(BuildContext context) {
-    final maxCount = summary.bars.isNotEmpty
-        ? summary.bars.reduce((a, b) => a > b ? a : b)
-        : 1;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              summary.average.toStringAsFixed(1),
-              style: const TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: List.generate(
-                5,
-                (index) => const Icon(
-                  Icons.star,
-                  color: Colors.amber,
-                  size: 18,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface, 
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          // Left side: Big Number Average
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                summary.averageRating.toStringAsFixed(1),
+                style: const TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Based on ${summary.total} review',
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 12,
+              const Text(
+                "out of 5", 
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12)
               ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: Column(
-            children: List.generate(5, (i) {
-              final star = 5 - i;
-              final count = summary.bars[i];
-              final widthFactor = maxCount == 0 ? 0.0 : count / maxCount;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      child: Text(
-                        star.toString(),
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: widthFactor,
-                          minHeight: 6,
-                          backgroundColor: AppColors.divider,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+              const SizedBox(height: 8),
+              Text(
+                "${summary.totalReviews} Reviews", 
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600, 
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                )
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(width: 24),
+          
+          // Right side: Progress Bars for 1-5 stars
+          Expanded(
+            child: Column(
+              children: List.generate(5, (index) {
+                // index 0 = 5 stars, index 4 = 1 star
+                int starLevel = 5 - index;
+                
+                // ✅ Calculates the percentage for the progress bar safely.
+                // If totalReviews is 0, percentage is 0.0 to avoid division by zero errors.
+                double percent = summary.totalReviews > 0 
+                    ? summary.getPercentForStar(starLevel) 
+                    : 0.0;
+                
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Text(
+                        "$starLevel", 
+                        style: const TextStyle(
+                          fontSize: 12, 
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        )
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: LinearProgressIndicator(
+                            value: percent,
+                            backgroundColor: Colors.grey[200],
+                            color: AppColors.primary,
+                            minHeight: 6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
