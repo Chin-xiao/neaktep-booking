@@ -1,14 +1,64 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../components/safe_network_image.dart';
-import '../layout/round_icon_button.dart';
-import '../routes/app_routes.dart';
-import '../services/hotel_service.dart';
+// Ensure these paths match your project structure
 import '../utils/app_colors.dart';
 import '../utils/models.dart';
+import '../routes/app_routes.dart';
+import '../components/safe_network_image.dart';
 
+// --- 1. HOTEL SERVICE ---
+class HotelService {
+  static const String baseUrl = "https://foods-tunes-vessel-leasing.trycloudflare.com/api";
+
+  Future<Map<String, String>> _getHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('auth_token');
+    return {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<List<Hotel>> searchHotels({
+    String? query,
+    double? minPrice,
+    double? maxPrice,
+    int? rating,
+    List<String>? facilities,
+    String? location,
+  }) async {
+    try {
+      final Map<String, String> params = {};
+      if (query != null && query.isNotEmpty) params['search'] = query;
+      if (minPrice != null && minPrice > 0) params['min_price'] = minPrice.toString();
+      if (maxPrice != null && maxPrice < 5000) params['max_price'] = maxPrice.toString();
+      if (rating != null && rating > 0) params['rating'] = rating.toString();
+      if (location != null && location.isNotEmpty) params['location'] = location;
+
+      final uri = Uri.parse('$baseUrl/hotels/search').replace(queryParameters: params);
+      final response = await http.get(uri, headers: await _getHeaders());
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        final List<dynamic> hotelsJson = (decoded is Map && decoded.containsKey('data')) 
+            ? decoded['data'] 
+            : (decoded is List ? decoded : []);
+        return hotelsJson.map((json) => Hotel.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('❌ Search Service Error: $e');
+      return [];
+    }
+  }
+}
+
+// --- 2. SEARCH PAGE UI ---
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
@@ -18,31 +68,26 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final HotelService _hotelService = HotelService();
-  late final Future<SearchPageData> _dataFuture;
-  late final FilterState _defaultFilters;
   late FilterState _filters;
-
   final TextEditingController _controller = TextEditingController();
   Timer? _debounce;
   int _searchToken = 0;
 
-  List<RecentSearchItem> _recentSearches = const [];
-  List<Hotel> _recentlyViewed = const [];
   List<Hotel> _results = const [];
   String _query = '';
-  bool _loadingResults = true;
+  bool _loadingResults = false;
 
   @override
   void initState() {
     super.initState();
-    _defaultFilters = FilterState.initial();
-    _filters = _defaultFilters;
-    _dataFuture = _hotelService.fetchSearchPageData().then((data) {
-      _recentSearches = data.recentSearches;
-      _recentlyViewed = data.recentlyViewed;
-      return data;
-    });
-    _runSearch();
+    _filters = FilterState(
+      minPrice: 0.0,
+      maxPrice: 2000.0,
+      location: '',
+      selectedFacilities: [],
+      rating: 0,
+    );
+    _runSearch(); 
   }
 
   @override
@@ -52,32 +97,27 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
-  bool get _hasActiveFilters => !_filters.matches(_defaultFilters);
-
-  Future<void> _openFilters() async {
-    final FilterState? result = await Navigator.of(
-      context,
-    ).push<FilterState>(AppRoutes.toFilter(_filters));
-    if (result != null) {
-      setState(() => _filters = result);
-      _runSearch();
-    }
-  }
-
   void _onQueryChanged(String value) {
     _query = value;
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 320), _runSearch);
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), _runSearch);
   }
 
   Future<void> _runSearch() async {
+    if (!mounted) return;
     setState(() => _loadingResults = true);
-    final token = ++_searchToken;
+    
+    final currentToken = ++_searchToken;
     final results = await _hotelService.searchHotels(
-      query: _query,
-      filters: _filters,
+      query: _query.trim(),
+      minPrice: _filters.minPrice,
+      maxPrice: _filters.maxPrice,
+      rating: _filters.rating,
+      location: _filters.location,
     );
-    if (!mounted || token != _searchToken) return;
+    
+    if (!mounted || currentToken != _searchToken) return;
+    
     setState(() {
       _results = results;
       _loadingResults = false;
@@ -87,396 +127,177 @@ class _SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: _buildAppBar(),
-      body: FutureBuilder<SearchPageData>(
-        future: _dataFuture,
-        builder: (context, snapshot) {
-          final hasError = snapshot.hasError;
-          final loadingData =
-              snapshot.connectionState == ConnectionState.waiting;
-          return Column(
-            children: [
-              const SizedBox(height: 8),
-              _buildSearchBar(),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                  children: [
-                    if (hasError)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          'Unable to load saved searches.',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                      ),
-                    _buildSectionHeader(
-                      title: 'Recent Searches',
-                      actionLabel: _recentSearches.isNotEmpty
-                          ? 'Clear All'
-                          : null,
-                      onAction: _recentSearches.isNotEmpty
-                          ? () => setState(() => _recentSearches = const [])
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-                    if (loadingData)
-                      _buildShimmerPlaceholder()
-                    else if (_recentSearches.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          'No recent searches yet.',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                      )
-                    else
-                      ..._buildRecentSearchList(_recentSearches),
-                    const SizedBox(height: 18),
-                    _buildSectionHeader(
-                      title: 'Recently Viewed',
-                      actionLabel: 'See All',
-                      onAction: () {},
-                    ),
-                    const SizedBox(height: 10),
-                    if (loadingData)
-                      _buildShimmerPlaceholder()
-                    else
-                      ..._recentlyViewed.map(_buildHotelCard),
-                    const SizedBox(height: 18),
-                    _buildSectionHeader(
-                      title: 'Results',
-                      actionLabel: _loadingResults
-                          ? null
-                          : '${_results.length} found',
-                    ),
-                    const SizedBox(height: 10),
-                    if (_loadingResults)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                            strokeWidth: 2.6,
-                          ),
-                        ),
-                      )
-                    else if (_results.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text(
-                          'No stays match your search. Try adjusting filters.',
-                          style: TextStyle(color: AppColors.textMuted),
-                        ),
-                      )
-                    else
-                      ..._results.map(_buildHotelCard),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: AppColors.surface,
-      elevation: 0,
-      leadingWidth: 60,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 8),
-        child: RoundIconButton(
-          icon: Icons.arrow_back,
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Discover Stays', 
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      title: const Text(
-        'Search',
-        style: TextStyle(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      centerTitle: true,
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              RoundIconButton(icon: Icons.notifications_none, onPressed: () {}),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          Expanded(
+            child: _loadingResults 
+              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+              : _results.isEmpty 
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _results.length,
+                      itemBuilder: (context, index) => _buildHotelCard(_results[index]),
+                    ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.divider),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.search, color: AppColors.textMuted, size: 22),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                onChanged: _onQueryChanged,
-                onSubmitted: (_) => _runSearch(),
-                decoration: const InputDecoration(
-                  hintText: 'Search...',
-                  border: InputBorder.none,
-                  isCollapsed: true,
-                ),
-              ),
+      padding: const EdgeInsets.all(16.0),
+      child: TextField(
+        controller: _controller,
+        onChanged: _onQueryChanged,
+        decoration: InputDecoration(
+          hintText: 'Search destinations...',
+          prefixIcon: const Icon(Icons.search, color: AppColors.primary),
+          suffixIcon: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 6),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                RoundIconButton(
-                  icon: Icons.tune,
-                  onPressed: _openFilters,
-                  backgroundColor: AppColors.background,
-                  iconColor: AppColors.primary,
-                ),
-                if (_hasActiveFilters)
-                  Positioned(
-                    top: -1,
-                    right: -1,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader({
-    required String title,
-    String? actionLabel,
-    VoidCallback? onAction,
-  }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-        ),
-        if (actionLabel != null)
-          GestureDetector(
-            onTap: onAction,
-            child: Text(
-              actionLabel,
-              style: TextStyle(
-                color: actionLabel == 'Clear All'
-                    ? AppColors.accent
-                    : AppColors.primary,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-              ),
+            child: IconButton(
+              icon: const Icon(Icons.tune, color: AppColors.primary, size: 20),
+              onPressed: () async {
+                final result = await Navigator.push(context, AppRoutes.toFilter(_filters));
+                if (result != null && result is FilterState) {
+                  setState(() => _filters = result);
+                  _runSearch();
+                }
+              },
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildShimmerPlaceholder() {
-    return Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(14),
-      ),
-    );
-  }
-
-  Widget _buildRecentSearchItem(RecentSearchItem item) {
-    return InkWell(
-      onTap: () {
-        _controller.text = item.title;
-        _onQueryChanged(item.title);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
-          children: [
-            const Icon(Icons.access_time, color: AppColors.textMuted, size: 18),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.subtitle,
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );
   }
 
-  List<Widget> _buildRecentSearchList(List<RecentSearchItem> items) {
-    final widgets = <Widget>[];
-    for (var i = 0; i < items.length; i++) {
-      widgets.add(_buildRecentSearchItem(items[i]));
-      if (i != items.length - 1) {
-        widgets.add(const Divider(height: 1));
-      }
-    }
-    return widgets;
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          const Text(
+            "No hotels found matching your search.",
+            style: TextStyle(color: Colors.grey, fontSize: 16),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildHotelCard(Hotel hotel) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04), 
+            blurRadius: 10, 
+            offset: const Offset(0, 4)
+          )
+        ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
+        // ✅ Uses the fixed AppRoutes that handles the Hero transition
         onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Hero(
-              tag: 'hotel-${hotel.id}',
-              child: SafeNetworkImage(
-                url: hotel.imageUrl,
-                width: 78,
-                height: 78,
-                borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                // ✅ FIXED: Using 'hotel.image' and SafeNetworkImage
+                child: SafeNetworkImage(
+                  url: hotel.image, 
+                  width: 90, 
+                  height: 90,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          hotel.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 16),
-                          Text(
-                            hotel.rating.toStringAsFixed(1),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    hotel.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hotel.name, 
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        size: 14,
-                        color: AppColors.textMuted,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          hotel.location,
-                          style: const TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 12,
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.grey, size: 14),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            hotel.location, 
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '\$${hotel.price} /night',
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '\$${hotel.price.toStringAsFixed(0)}', 
+                          style: const TextStyle(
+                            color: AppColors.primary, 
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16
+                          )
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.star, color: Colors.amber, size: 16),
+                            Text(
+                              " ${hotel.rating}", 
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

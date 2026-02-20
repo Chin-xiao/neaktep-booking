@@ -18,8 +18,9 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _replyController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
 
-  List<Map<String, dynamic>> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
   bool _showEmoji = false;
 
   void _sendMessage() {
@@ -39,15 +40,42 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          _scrollController.position.maxScrollExtent + 80,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
       }
     });
+  }
+
+  void _toggleEmojiKeyboard() {
+    if (_showEmoji) {
+      setState(() => _showEmoji = false);
+      _focusNode.requestFocus();
+    } else {
+      _focusNode.unfocus();
+      setState(() => _showEmoji = true);
+    }
+  }
+
+  // ✅ FIXED: Use dynamic instead of Emoji
+  void _onEmojiSelected(dynamic emoji) {
+    final text = _replyController.text;
+    final selection = _replyController.selection;
+
+    final start = selection.start < 0 ? text.length : selection.start;
+    final end = selection.end < 0 ? text.length : selection.end;
+
+    final newText = text.replaceRange(start, end, emoji.emoji);
+
+    _replyController.text = newText;
+   _replyController.selection = TextSelection.collapsed(
+  offset: (start + emoji.emoji.length).toInt(),
+);
+
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> msg) {
@@ -88,7 +116,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Widget _buildReplyBar() {
+   
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -100,10 +130,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.sentiment_satisfied_alt),
-                onPressed: () {
-                  FocusScope.of(context).unfocus();
-                  setState(() => _showEmoji = !_showEmoji);
-                },
+                onPressed: _toggleEmojiKeyboard,
               ),
               Expanded(
                 child: Container(
@@ -113,9 +140,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     borderRadius: BorderRadius.circular(25),
                   ),
                   child: TextField(
+                    focusNode: _focusNode,
                     controller: _replyController,
                     onTap: () {
-                      setState(() => _showEmoji = false);
+                      if (_showEmoji) {
+                        setState(() => _showEmoji = false);
+                      }
                     },
                     decoration: const InputDecoration(
                       hintText: "Write a reply",
@@ -136,20 +166,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ],
           ),
         ),
+
         Offstage(
-          offstage: !_showEmoji,
-          child: SizedBox(
-            height: 300,
-            child: EmojiPicker(
-              onEmojiSelected: (category, emoji) {
-                _replyController.text += emoji.emoji;
-              },
-              config: const Config(columns: 7, emojiSizeMax: 28),
-            ),
-          ),
-        ),
+  offstage: !_showEmoji,
+  child: SizedBox(
+    height: 300,
+    child: EmojiPicker(
+      onEmojiSelected: (category, emoji) {
+        _onEmojiSelected(emoji);
+      },
+    ),
+  ),
+),
+
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _replyController.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   @override

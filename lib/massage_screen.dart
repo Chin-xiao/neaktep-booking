@@ -153,6 +153,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showEmoji = false;
 
   List<Map<String, dynamic>> _messages = [];
+  
+  get SharedPreferences => null;
 
   @override
   void initState() {

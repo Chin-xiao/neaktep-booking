@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../pages/detail_page.dart';
+// ✅ 1. IMPORT FIX: 
+// Ensure this points to the correct location of your detail screen file.
+import '../pages/detail_page.dart'; 
 import '../pages/filter_page.dart';
 import '../pages/search_page.dart';
 import '../pages/reviews_page.dart';
@@ -14,9 +16,9 @@ class AppRoutes {
   static const String reviews = '/reviews';
   static const String facilities = '/facilities';
 
-  static Route<void> toSearch() {
-    return _slideFromRight(
-      const SearchPage(),
+  static Route toSearch() {
+    return MaterialPageRoute(
+      builder: (_) => const SearchPage(),
       settings: const RouteSettings(name: search),
     );
   }
@@ -28,9 +30,11 @@ class AppRoutes {
     );
   }
 
+  /// ✅ 2. CONSTRUCTOR FIX:
+  /// Passes the 'hotel' object into the named parameter 'hotel'.
   static Route<void> toDetail(Hotel hotel) {
     return _fadeScale(
-      DetailPage(hotel: hotel),
+      HotelDetailScreen(hotel: hotel), // ✅ This calls the class inside detail_page.dart
       settings: const RouteSettings(name: detail),
     );
   }
@@ -49,6 +53,8 @@ class AppRoutes {
     );
   }
 
+  // --- Animation Builders ---
+
   static PageRouteBuilder<T> _slideFromRight<T>(
     Widget page, {
     RouteSettings? settings,
@@ -62,6 +68,7 @@ class AppRoutes {
           begin: const Offset(0.15, 0),
           end: Offset.zero,
         ).chain(CurveTween(curve: Curves.easeOutCubic));
+        
         return SlideTransition(
           position: animation.drive(offsetTween),
           child: FadeTransition(opacity: animation, child: child),
@@ -83,6 +90,7 @@ class AppRoutes {
           begin: const Offset(0, 0.2),
           end: Offset.zero,
         ).chain(CurveTween(curve: Curves.easeOutCubic));
+
         return SlideTransition(
           position: animation.drive(offsetTween),
           child: FadeTransition(opacity: animation, child: child),
@@ -104,6 +112,7 @@ class AppRoutes {
           begin: 0.98,
           end: 1,
         ).chain(CurveTween(curve: Curves.easeOutCubic));
+
         return FadeTransition(
           opacity: animation,
           child: ScaleTransition(
