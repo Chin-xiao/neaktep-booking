@@ -1,35 +1,132 @@
 ﻿import 'package:flutter/material.dart';
-import 'massage_screen.dart'; // Ensure filename is exactly this
-import 'profile_screen.dart';
-import 'routes/app_routes.dart';
-import 'services/hotel_service.dart';
-import 'utils/app_colors.dart';
-import 'utils/models.dart';
-import 'notification_detail_screen.dart';
-import 'all_notifications_screen.dart';
-// import 'my_booking_screen.dart'; // Uncomment if this is a separate file
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() => runApp(
-      MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          scaffoldBackgroundColor: AppColors.background,
-          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: AppColors.surface,
-            elevation: 0,
-            titleTextStyle: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+// --- PROJECT IMPORTS ---
+import 'package:neak_booking_app/screens/login_screen.dart';
+import 'package:neak_booking_app/services/auth_service.dart';
+import 'package:neak_booking_app/services/api_service.dart';
+import 'package:neak_booking_app/my_booking_screen.dart';
+import 'package:neak_booking_app/massage_screen.dart';
+import 'package:neak_booking_app/profile_screen.dart';
+import 'package:neak_booking_app/routes/app_routes.dart';
+import 'package:neak_booking_app/utils/app_colors.dart';
+import 'package:neak_booking_app/utils/models.dart';
+import 'package:neak_booking_app/all_notifications_screen.dart';
+import 'package:neak_booking_app/components/safe_network_image.dart'; // ✅ Added this
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint("Handling a background message: ${message.messageId}");
+}
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  } catch (e) {
+    debugPrint("Firebase init failed: $e");
+  }
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      debugShowCheckedModeBanner: false,
+      title: 'Neak Booking',
+      theme: ThemeData(
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.background,
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.surface,
+          elevation: 0,
+          titleTextStyle: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          iconTheme: IconThemeData(color: AppColors.textPrimary),
+          foregroundColor: AppColors.textPrimary,
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: AppColors.primary, width: 2),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
-        home: const MainNavigation(),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          selectedItemColor: AppColors.primary,
+          unselectedItemColor: Colors.grey,
+          type: BottomNavigationBarType.fixed,
+        ),
+      ),
+      darkTheme: ThemeData.dark().copyWith(
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: Colors.black,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.grey,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      home: FutureBuilder<bool>(
+        future: _checkLoginStatus(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return snapshot.data == true
+              ? const MainNavigation()
+              : const LoginScreen();
+        },
       ),
     );
+  }
 
-// --- NAVIGATION WRAPPER ---
+  Future<bool> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token') != null;
+  }
+}
+
+// --- MAIN NAVIGATION (THE HUB) ---
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
 
@@ -39,29 +136,156 @@ class MainNavigation extends StatefulWidget {
 
 class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
-  late List<Widget> _screens;
+  String displayUserName = "User";
+  String? userProfileImage;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
     super.initState();
-    _screens = [
-      HotelHomeScreen(onProfileClick: () => _onTabChanged(3)),
-      const MyBookingScreen(),
-      const MessageScreen(),
-      const ProfileScreen(),
-    ];
+    _fetchUserData();
+    _setupFCM();
+  }
+
+  Future<void> _setupFCM() async {
+    // Request permission first
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+
+    debugPrint('User granted permission: ${settings.authorizationStatus}');
+
+    // Force token update
+    await _authService.updateFCMToken();
+
+    // 1. App is Terminated, user taps notification
+    FirebaseMessaging.instance.getInitialMessage().then((
+      RemoteMessage? message,
+    ) {
+      if (message != null) {
+        _handleNotificationClick(message);
+      }
+    });
+
+    // 2. App is in Foreground, we show a local dialog or snackbar
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint("Foreground message: ${message.notification?.title}");
+      if (message.notification != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "${message.notification!.title}: ${message.notification!.body}",
+            ),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: "View",
+              onPressed: () => _handleNotificationClick(message),
+            ),
+          ),
+        );
+      }
+    });
+
+    // 3. App is in Background, user taps notification
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleNotificationClick(message);
+    });
+  }
+
+  void _handleNotificationClick(RemoteMessage message) async {
+    final data = message.data;
+    if (data['type'] == 'hotel_alert' && data['hotel_id'] != null) {
+      final String hotelId = data['hotel_id'];
+      debugPrint("Navigating to hotel $hotelId from notification");
+      // Fetch hotel details and navigate
+      final ApiService apiService = ApiService();
+      final hotel = await apiService.fetchHotelById(hotelId);
+      if (hotel != null && mounted) {
+        Navigator.of(context).push(AppRoutes.toDetail(hotel));
+      }
+    }
+  }
+
+  Future<void> _fetchUserData() async {
+    final data = await _authService.getUserProfile();
+    if (data != null && mounted) {
+      debugPrint('📥 Home Profile Data from API: $data');
+      setState(() {
+        displayUserName = data['name'] ?? data['username'] ?? "User";
+        // Get profile image from different possible field names
+        String? imageUrl =
+            data['profile_photo_url'] ??
+            data['avatar'] ??
+            data['profile_image'] ??
+            data['photo'];
+
+        debugPrint('🎯 Raw image URL from API: $imageUrl');
+
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          // If it's already a full URL, keep it
+          if (imageUrl.startsWith('http')) {
+            debugPrint('✅ Full URL detected: $imageUrl');
+            final separator = imageUrl.contains('?') ? '&' : '?';
+            userProfileImage =
+                '$imageUrl${separator}t=${DateTime.now().millisecondsSinceEpoch}';
+          } else {
+            // It's a relative path - convert it
+            debugPrint('🔄 Relative path detected: $imageUrl');
+            String cleanPath = imageUrl;
+            if (cleanPath.startsWith('/')) {
+              cleanPath = cleanPath.substring(1);
+            }
+            if (cleanPath.startsWith('storage/')) {
+              cleanPath = cleanPath.substring(8);
+            }
+            // use AuthService.storageBaseUrl for current domain
+            userProfileImage =
+                '${_authService.storageBaseUrl}/$cleanPath?t=${DateTime.now().millisecondsSinceEpoch}';
+          }
+          debugPrint('✅ Final home profile image URL: $userProfileImage');
+        } else {
+          debugPrint('⚠️ No profile image URL found in API response');
+          userProfileImage = null;
+        }
+      });
+    }
   }
 
   void _onTabChanged(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
+    // Refresh user data when navigating to profile tab and back
+    if (index == 3) {
+      // Profile tab - will be updated there
+    } else if (index == 0) {
+      // Home tab - refresh profile data to show updated image
+      _fetchUserData();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          HotelHomeScreen(
+            onProfileClick: () => _onTabChanged(3),
+            userName: displayUserName,
+            userProfileImage: userProfileImage,
+          ),
+          const MyBookingScreen(),
+          const MessageScreen(),
+          const ProfileScreen(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primary,
@@ -91,7 +315,15 @@ class _MainNavigationState extends State<MainNavigation> {
 // --- HOME SCREEN ---
 class HotelHomeScreen extends StatefulWidget {
   final VoidCallback onProfileClick;
-  const HotelHomeScreen({super.key, required this.onProfileClick});
+  final String userName;
+  final String? userProfileImage;
+
+  const HotelHomeScreen({
+    super.key,
+    required this.onProfileClick,
+    required this.userName,
+    this.userProfileImage,
+  });
 
   @override
   State<HotelHomeScreen> createState() => _HotelHomeScreenState();
@@ -99,91 +331,66 @@ class HotelHomeScreen extends StatefulWidget {
 
 class _HotelHomeScreenState extends State<HotelHomeScreen> {
   bool _showNotificationDropdown = false;
+  late Future<List<Hotel>> _hotelsFuture;
+  final ApiService _apiService = ApiService();
 
-  Hotel _findHotel(String id) {
-    return demoHotels.firstWhere(
-      (hotel) => hotel.id == id,
-      orElse: () => demoHotels.first,
-    );
+  @override
+  void initState() {
+    super.initState();
+    _hotelsFuture = _apiService.fetchHotels();
   }
 
   @override
   Widget build(BuildContext context) {
-    final popularHotels = [
-      _findHotel('horizon-retreat'),
-      _findHotel('opal-grove'),
-    ];
-    final recommendedHotel = _findHotel('serenity-sands');
-    final bestTodayHotel = _findHotel('phnom-penh-51');
-
     return SafeArea(
       child: Stack(
         children: [
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: GestureDetector(
-                      onTap: widget.onProfileClick,
-                      child: const CircleAvatar(
-                        backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=11',
-                        ),
-                      ),
-                    ),
-                    title: const Text(
-                      "Chhorm Bunthai",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: const Row(
+          FutureBuilder<List<Hotel>>(
+            future: _hotelsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final hotels = snapshot.data ?? [];
+              final popularHotels = hotels.where((h) => h.isPopular).toList();
+
+              return RefreshIndicator(
+                onRefresh: () async =>
+                    setState(() => _hotelsFuture = _apiService.fetchHotels()),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.location_on, size: 14, color: Colors.grey),
-                        Text(" Phnom Penh"),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                    IconButton(
-                      icon: _buildHeaderIcon(Icons.search),
-                      onPressed: () =>
-                          Navigator.push(context, AppRoutes.toSearch()),
-                    ),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _showNotificationDropdown =
-                                  !_showNotificationDropdown;
-                            });
-                          },
-                          child: _buildNotificationIcon(),
-                        ),
+                        _buildHeader(context),
+                        const SizedBox(height: 20),
+                        _buildSearchInput(context),
+                        const SizedBox(height: 24),
+                        _buildLocationBanner(),
+                        const SizedBox(height: 24),
+                        _sectionHeader("Most Popular"),
+                        const SizedBox(height: 16),
+                        _buildPopularList(context, popularHotels),
+                        const SizedBox(height: 24),
+                        _sectionHeader("Recommended for you"),
+                        const SizedBox(height: 16),
+                        _buildCategoryRow(),
+                        const SizedBox(height: 20),
+                        if (hotels.isNotEmpty)
+                          _buildRecommendedItem(context, hotels.first),
+                        const SizedBox(height: 24),
+                        _sectionHeader("Best Today"),
+                        const SizedBox(height: 16),
+                        _buildBestTodayList(context, hotels),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  _buildLocationBanner(),
-                  const SizedBox(height: 24),
-                  _sectionHeader("Most Popular"),
-                  const SizedBox(height: 16),
-                  _buildPopularList(context, popularHotels),
-                  const SizedBox(height: 24),
-                  _sectionHeader("Recommended for you"),
-                  const SizedBox(height: 16),
-                  _buildCategoryRow(),
-                  const SizedBox(height: 20),
-                  _buildRecommendedItem(context, recommendedHotel),
-                  const SizedBox(height: 24),
-                  _sectionHeader("Best Today"),
-                  const SizedBox(height: 16),
-                  _buildBestTodayList(context, bestTodayHotel),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           if (_showNotificationDropdown) _buildNotificationDropdown(context),
         ],
@@ -191,735 +398,578 @@ class _HotelHomeScreenState extends State<HotelHomeScreen> {
     );
   }
 
-  Widget _buildNotificationDropdown(BuildContext context) => Positioned.fill(
-        child: GestureDetector(
-          onTap: () => setState(() => _showNotificationDropdown = false),
+  // --- UI COMPONENTS ---
+
+  Widget _buildHeader(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      children: [
+        GestureDetector(
+          onTap: widget.onProfileClick,
           child: Container(
-            color: Colors.black.withValues(alpha: 0.3),
-            alignment: Alignment.topRight,
-            child: Container(
-              margin: const EdgeInsets.only(top: 75, right: 16),
-              width: 300,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey, width: 0.5),
-                        ),
-                      ),
-                      child: const Text(
-                        "Notifications",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    _buildNotificationItem(
-                      "Booking Confirmed",
-                      "Your booking for Serenity Sands has been confirmed!",
-                      Icons.check_circle,
-                      Colors.green,
-                      "5 minutes ago",
-                      "Your booking for Serenity Sands Resort has been successfully confirmed. Check-in date: January 25, 2026. Check-out date: January 28, 2026. Booking ID: #BS2026001",
-                    ),
-                    const Divider(height: 1),
-                    _buildNotificationItem(
-                      "Special Offer",
-                      "Get 20% off on selected villas this week",
-                      Icons.local_offer,
-                      Colors.orange,
-                      "2 hours ago",
-                      "Limited time offer! Enjoy 20% discount on all premium villa bookings this week. Use promo code: VILLA20. Offer valid until January 24, 2026.",
-                    ),
-                    const Divider(height: 1),
-                    _buildNotificationItem(
-                      "New Message",
-                      "You have a new message from Phnom Penh Hotel",
-                      Icons.mail,
-                      Colors.blue,
-                      "1 day ago",
-                      "Phnom Penh Hotel has sent you a message regarding your upcoming reservation. They have special amenities available for your stay.",
-                    ),
-                    const Divider(height: 1),
-                    _buildNotificationItem(
-                      "Review Request",
-                      "How was your stay? Please leave a review",
-                      Icons.star,
-                      Colors.amber,
-                      "3 days ago",
-                      "We hope you enjoyed your recent stay at Ocean View Resort. Your feedback helps us improve our services. Please take a moment to rate your experience.",
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3056D3),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _showNotificationDropdown = false;
-                            });
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const AllNotificationsScreen(),
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            "View All",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-
-  Widget _buildHeaderIcon(IconData icon) => Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Icon(icon, size: 20),
-      );
-
-  Widget _buildNotificationIcon() => AnimatedScale(
-        scale: _showNotificationDropdown ? 1.18 : 1.0,
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutBack,
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          offset:
-              _showNotificationDropdown ? const Offset(0, -0.05) : Offset.zero,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _showNotificationDropdown
-                  ? const Color(0xFF3056D3).withValues(alpha: 0.16)
-                  : Colors.white,
               border: Border.all(
-                color: _showNotificationDropdown
-                    ? const Color(0xFF3056D3)
-                    : Colors.grey.shade200,
+                color: AppColors.primary.withOpacity(0.2),
+                width: 2,
               ),
-              boxShadow: _showNotificationDropdown
-                  ? [
-                      BoxShadow(
-                        color: const Color(0xFF3056D3).withValues(alpha: 0.28),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : [],
             ),
-            child: Icon(
-              _showNotificationDropdown
-                  ? Icons.notifications
-                  : Icons.notifications_none,
-              size: 20,
-              color: _showNotificationDropdown
-                  ? const Color(0xFF3056D3)
-                  : Colors.black,
+            child: CircleAvatar(
+              radius: 20,
+              backgroundImage:
+                  (widget.userProfileImage != null &&
+                      widget.userProfileImage!.isNotEmpty)
+                  ? NetworkImage(widget.userProfileImage!)
+                  : const NetworkImage('https://i.pravatar.cc/150?img=11'),
+              child:
+                  (widget.userProfileImage == null ||
+                      widget.userProfileImage!.isEmpty)
+                  ? const Icon(Icons.person, size: 24, color: Colors.grey)
+                  : null,
             ),
           ),
         ),
-      );
-
-  Widget _buildNotificationItem(
-    String title,
-    String message,
-    IconData icon,
-    Color iconColor,
-    String timestamp,
-    String detailedDescription,
-  ) =>
-      InkWell(
-        onTap: () {
-          setState(() {
-            _showNotificationDropdown = false;
-          });
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => NotificationDetailScreen(
-                title: title,
-                message: message,
-                icon: icon,
-                iconColor: iconColor,
-                timestamp: timestamp,
-                detailedDescription: detailedDescription,
-              ),
-            ),
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+              Text(
+                "Hello, ${widget.userName}!",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: AppColors.textPrimary,
                 ),
-                child: Icon(icon, color: iconColor, size: 20),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      message,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      timestamp,
-                      style: const TextStyle(color: Colors.grey, fontSize: 11),
-                    ),
-                  ],
-                ),
+              const Text(
+                "Find your perfect stay",
+                style: TextStyle(color: AppColors.textMuted, fontSize: 14),
               ),
             ],
           ),
         ),
-      );
-
-  Widget _sectionHeader(String title) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        GestureDetector(
+          onTap: () => setState(
+            () => _showNotificationDropdown = !_showNotificationDropdown,
           ),
-          const Text("See All", style: TextStyle(color: Colors.blue)),
-        ],
-      );
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.notifications_none,
+              size: 24,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
-  Widget _buildLocationBanner() => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.blue.withValues(alpha: 0.05),
+  Widget _buildSearchInput(BuildContext context) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    child: TextField(
+      readOnly: true,
+      onTap: () => Navigator.push(context, AppRoutes.toSearch()),
+      decoration: InputDecoration(
+        hintText: "Search hotels, villas, resorts...",
+        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
+        prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 24),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
-        child: const Row(
-          children: [
-            Icon(Icons.location_pin, color: Color(0xFF0D47A1)),
-            SizedBox(width: 12),
-            Expanded(child: Text("Change Location for nearby villas")),
-            Icon(Icons.arrow_forward_ios, size: 16),
-          ],
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
-      );
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.primary, width: 2),
+        ),
+      ),
+    ),
+  );
 
   Widget _buildPopularList(BuildContext context, List<Hotel> hotels) =>
       SizedBox(
         height: 280,
-        child: ListView(
+        child: ListView.builder(
           scrollDirection: Axis.horizontal,
-          children:
-              hotels.map((hotel) => _buildPopularCard(context, hotel)).toList(),
+          itemCount: hotels.length,
+          itemBuilder: (context, index) =>
+              _buildPopularCard(context, hotels[index]),
         ),
       );
 
   Widget _buildPopularCard(BuildContext context, Hotel hotel) => Container(
-        width: 220,
-        margin: const EdgeInsets.only(right: 16),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
-          child: Stack(
-            children: [
-              Hero(
-                tag: 'hotel-${hotel.id}',
-                child: Image.network(
-                  hotel.imageUrl,
-                  height: double.infinity,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+    width: 220,
+    margin: const EdgeInsets.only(right: 16),
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(24),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.1),
+          blurRadius: 10,
+          offset: const Offset(0, 5),
+        ),
+      ],
+    ),
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
+      child: Stack(
+        children: [
+          // ✅ FIXED: Changed imageUrl to image
+          SafeNetworkImage(
+            url: hotel.image,
+            height: double.infinity,
+            width: double.infinity,
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
               ),
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.8),
-                    ],
+            ),
+          ),
+          Positioned(
+            bottom: 15,
+            left: 15,
+            right: 15,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hotel.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const Positioned(
-                top: 12,
-                right: 12,
-                child: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  radius: 15,
-                  child: Icon(Icons.favorite, color: Colors.red, size: 16),
+                const SizedBox(height: 4),
+                Text(
+                  hotel.location,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
-              ),
-              Positioned(
-                bottom: 15,
-                left: 15,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      hotel.name,
+                      '\$${hotel.price.toStringAsFixed(0)} /night',
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                    Text(
-                      hotel.location,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '\$${hotel.price}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.star, color: Colors.amber, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            hotel.rating.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const Text(
-                          "/night",
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 10),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildRecommendedItem(BuildContext context, Hotel hotel) => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
+      child: Row(
+        children: [
+          // ✅ FIXED: Changed imageUrl to image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SafeNetworkImage(url: hotel.image, width: 80, height: 80),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hotel.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hotel.location,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      "${hotel.rating}",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      "\$${hotel.price.toStringAsFixed(0)} /night",
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  /// Previously a horizontal carousel.  Now shows the full list
+  /// vertically so that the user can scroll down to see all items.
+  Widget _buildBestTodayList(BuildContext context, List<Hotel> hotels) {
+    // if you want to filter for a "best today" flag, apply it here.
+    final list = hotels; // .where((h) => h.isBestToday).toList();
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: list.length,
+      itemBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.only(bottom: 16.0),
+        child: _buildBestTodayCard(context, list[index]),
+      ),
+    );
+  }
+
+  Widget _buildBestTodayCard(BuildContext context, Hotel hotel) => Container(
+    margin: const EdgeInsets.only(right: 16),
+    padding: const EdgeInsets.all(12),
+    width: MediaQuery.of(context).size.width * 0.85,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
+      child: Row(
+        children: [
+          // ✅ FIXED: Changed imageUrl to image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SafeNetworkImage(url: hotel.image, width: 75, height: 75),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  hotel.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hotel.location,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.star, color: Colors.amber, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      "${hotel.rating}",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '\$${hotel.price.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _buildNotificationDropdown(BuildContext context) => Positioned.fill(
+    child: GestureDetector(
+      onTap: () => setState(() => _showNotificationDropdown = false),
+      child: Container(
+        color: Colors.black.withOpacity(0.3),
+        alignment: Alignment.topRight,
+        child: Container(
+          margin: const EdgeInsets.only(top: 75, right: 16),
+          width: 280,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                leading: Icon(Icons.check_circle, color: Colors.green),
+                title: Text("Booking Confirmed"),
+                subtitle: Text("Your stay is ready!"),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: ElevatedButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const AllNotificationsScreen(),
+                    ),
+                  ),
+                  child: const Text("View All"),
                 ),
               ),
             ],
           ),
         ),
-      );
+      ),
+    ),
+  );
+
+  Widget _sectionHeader(String title) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        GestureDetector(
+          onTap: () {
+            // TODO: Implement see all functionality
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('See all $title coming soon!')),
+            );
+          },
+          child: Text(
+            "See All",
+            style: TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildLocationBanner() => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          AppColors.primary.withOpacity(0.1),
+          AppColors.primary.withOpacity(0.05),
+        ],
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      ),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+    ),
+    child: InkWell(
+      onTap: () {
+        // TODO: Implement location change
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location change coming soon!')),
+        );
+      },
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.location_pin,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Current Location",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  "Phnom Penh, Cambodia",
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.primary),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildCategoryRow() => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildCategoryItem("All", Icons.apps, true),
-            _buildCategoryItem("Villas", Icons.villa, false),
-            _buildCategoryItem("Hotels", Icons.hotel, false),
-          ],
-        ),
-      );
+    scrollDirection: Axis.horizontal,
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        _buildCategoryItem("All", Icons.apps, true),
+        _buildCategoryItem("Hotels", Icons.hotel, false),
+        _buildCategoryItem("Villas", Icons.villa, false),
+        _buildCategoryItem("Apartments", Icons.apartment, false),
+        _buildCategoryItem("Resorts", Icons.pool, false),
+        _buildCategoryItem("Cabins", Icons.cabin, false),
+      ],
+    ),
+  );
 
   Widget _buildCategoryItem(String title, IconData icon, bool isSelected) =>
       Container(
         margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3056D3) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade200,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              size: 18,
-              color: isSelected ? Colors.white : Colors.grey,
+              size: 20,
+              color: isSelected ? Colors.white : Colors.grey[600],
             ),
             const SizedBox(width: 8),
             Text(
               title,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _buildRecommendedItem(BuildContext context, Hotel hotel) => Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
-          child: Row(
-            children: [
-              Hero(
-                tag: 'hotel-${hotel.id}',
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    hotel.imageUrl,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hotel.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on,
-                            size: 14, color: Colors.grey),
-                        Text(
-                          hotel.location,
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "\$${hotel.price} /night",
-                      style: const TextStyle(
-                        color: Color(0xFF0D47A1),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  const Icon(Icons.star, color: Colors.amber, size: 18),
-                  Text(
-                    " ${hotel.rating.toStringAsFixed(1)}",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-
-  Widget _buildBestTodayList(BuildContext context, Hotel hotel) => SizedBox(
-        height: 120,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [_buildBestTodayCard(context, hotel, "\$200")],
-        ),
-      );
-
-  Widget _buildBestTodayCard(BuildContext context, Hotel hotel, String old) =>
-      InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          margin: const EdgeInsets.only(right: 16),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade100),
-          ),
-          child: Row(
-            children: [
-              Hero(
-                tag: 'hotel-${hotel.id}',
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    hotel.imageUrl,
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      hotel.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      hotel.location,
-                      style: const TextStyle(color: Colors.grey, fontSize: 10),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          '\$${hotel.price}',
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          old,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 10,
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-}
-
-// --- MY BOOKING SCREEN ---
-class MyBookingScreen extends StatefulWidget {
-  const MyBookingScreen({super.key});
-
-  @override
-  State<MyBookingScreen> createState() => _MyBookingScreenState();
-}
-
-class _MyBookingScreenState extends State<MyBookingScreen> {
-  bool isBookedSelected = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          "My Booking",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.search, color: Colors.grey),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: "Search...",
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.only(left: 10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildToggleButton(),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView(
-                children: [
-                  _buildBookingCard(
-                    "Aston Vill Hotel",
-                    "Michikoton",
-                    "\$120",
-                    4.7,
-                    "12-14 Nov",
-                    "2 Guests",
-                    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=400",
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildToggleButton() => Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(25),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => isBookedSelected = true),
-                child: Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isBookedSelected ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Text(
-                    "Booked",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isBookedSelected ? Colors.black : Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => isBookedSelected = false),
-                child: Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color:
-                        !isBookedSelected ? Colors.white : Colors.transparent,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: Text(
-                    "History",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: !isBookedSelected ? Colors.black : Colors.grey,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _buildBookingCard(
-    String n,
-    String l,
-    String p,
-    double r,
-    String d,
-    String g,
-    String img,
-  ) =>
-      Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(img, width: 80, height: 100, fit: BoxFit.cover),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(n, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 14),
-                          Text(" $r"),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Text(l, style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                  Text(
-                    p,
-                    style: const TextStyle(
-                      color: Color(0xFF3056D3),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Divider(),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Dates: $d", style: const TextStyle(fontSize: 11)),
-                      Text("Guests: $g", style: const TextStyle(fontSize: 11)),
-                    ],
-                  ),
-                ],
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ],
