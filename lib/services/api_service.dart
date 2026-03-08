@@ -8,9 +8,9 @@ class ApiService {
   // --- ENDPOINTS ---
   // Ensure these match the active tunnels in your terminal
   final String hotelUrl =
-      "https://viewed-printers-fax-before.trycloudflare.com/api/hotels";
+      "https://participant-cubic-pierre-judy.trycloudflare.com/api/hotels";
   final String bookingUrl =
-      "https://viewed-printers-fax-before.trycloudflare.com/api/bookings";
+      "https://participant-cubic-pierre-judy.trycloudflare.com/api/bookings";
 
   // --- HELPER: GET AUTH HEADERS ---
   Future<Map<String, String>> _getHeaders() async {

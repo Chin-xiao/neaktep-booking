@@ -47,7 +47,6 @@ app.*.map.json
 /Pictures/
 
 # Sensitive API keys
-.env
 *.env
 config.json
 secrets.xml
@@ -69,3 +68,5 @@ android/key.properties
 # Android local secrets
 android/local.properties
 android/app/src/main/res/values/google_maps_api.xml
+config.bat
+node_modules
