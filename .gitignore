@@ -45,3 +45,21 @@ app.*.map.json
 /android/app/release
 
 /Pictures/
+
+# Sensitive API keys
+.env
+*.env
+config.json
+secrets.xml
+
+# Mobile Specific
+ios/Flutter/Generated.xcconfig
+android/key.properties
+
+# Google Services & Keys
+google-services.json
+neaktep-project-firebase-*.json
+*.jks
+*.p12
+*.pem
+local.properties

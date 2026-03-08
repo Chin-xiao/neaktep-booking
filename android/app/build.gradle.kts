@@ -45,3 +45,13 @@ android {
 flutter {
     source = "../.."
 }
+
+
+def localProperties = new Properties()
+localProperties.load(new FileInputStream(rootProject.file("local.properties")))
+
+android {
+    defaultConfig {
+        manifestPlaceholders = [mapsApiKey: localProperties.getProperty("GOOGLE_MAPS_KEY")]
+    }
+}
