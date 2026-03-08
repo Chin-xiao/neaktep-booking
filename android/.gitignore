@@ -12,3 +12,11 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Sensitive Google/Firebase Files
+**/google-services.json
+**/neaktep-project-firebase-*.json
+
+# Android local secrets
+android/local.properties
+android/app/src/main/res/values/google_maps_api.xml

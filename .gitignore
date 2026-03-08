@@ -57,9 +57,15 @@ ios/Flutter/Generated.xcconfig
 android/key.properties
 
 # Google Services & Keys
-google-services.json
-neaktep-project-firebase-*.json
+
 *.jks
 *.p12
 *.pem
-local.properties
+
+# Google & Firebase
+**/google-services.json
+**/neaktep-project-firebase-*.json
+
+# Android local secrets
+android/local.properties
+android/app/src/main/res/values/google_maps_api.xml
