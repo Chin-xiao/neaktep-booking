@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'all_notifications_screen.dart' show AllNotificationsScreen;
 import '../components/safe_network_image.dart';
 import '../services/hotel_service.dart';
+
 import '../utils/models.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -34,7 +35,21 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     // ✅ Load default data immediately when screen opens
-    _fetchHotels();
+    _loadDefaultHotels();
+  }
+
+  /// Load all hotels on initial screen open (no filters applied)
+  Future<void> _loadDefaultHotels() async {
+    debugPrint("🔍 Loading default hotels...");
+    setState(() => _isLoading = true);
+    final results = await _hotelService.searchHotels();
+    debugPrint("🔍 Default hotels loaded: ${results.length} hotels");
+    if (mounted) {
+      setState(() {
+        _hotels = results;
+        _isLoading = false;
+      });
+    }
   }
 
   /// ✅ The core logic to fetch data from your API
@@ -48,12 +63,12 @@ class _SearchScreenState extends State<SearchScreen> {
         .toList();
 
     final results = await _hotelService.searchHotels(
-      query: _searchController.text,
-      minPrice: _priceRange.start,
-      maxPrice: _priceRange.end,
-      rating: _selectedRating,
-      location: _selectedLocation,
-      facilities: selectedFacilities,
+      query: _searchController.text.isNotEmpty ? _searchController.text : null,
+      minPrice: _priceRange.start > 0 ? _priceRange.start : null,
+      maxPrice: _priceRange.end < 500 ? _priceRange.end : null,
+      rating: _selectedRating < 4 ? _selectedRating : null,
+      location: null,
+      facilities: selectedFacilities.isEmpty ? null : selectedFacilities,
     );
 
     if (mounted) {
@@ -87,7 +102,9 @@ class _SearchScreenState extends State<SearchScreen> {
                 icon: const Icon(Icons.notifications_none, color: Colors.black),
                 onPressed: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AllNotificationsScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const AllNotificationsScreen(),
+                  ),
                 ),
               ),
               Positioned(
@@ -96,7 +113,10 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ),
             ],
@@ -108,21 +128,23 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           _buildSearchBar(context),
           const SizedBox(height: 20),
-          
+
           // --- Dynamic Results Section ---
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3056D3)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF3056D3)),
+                  )
                 : _hotels.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _hotels.length,
-                        itemBuilder: (context, index) {
-                          final hotel = _hotels[index];
-                          return _buildLargeSearchCard(hotel);
-                        },
-                      ),
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _hotels.length,
+                    itemBuilder: (context, index) {
+                      final hotel = _hotels[index];
+                      return _buildLargeSearchCard(hotel);
+                    },
+                  ),
           ),
         ],
       ),
@@ -140,11 +162,15 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.search, color: Colors.grey),
+            IconButton(
+              icon: const Icon(Icons.search, color: Colors.grey),
+              onPressed: _fetchHotels,
+            ),
             Expanded(
               child: TextField(
                 controller: _searchController,
-                onSubmitted: (_) => _fetchHotels(), // ✅ Search when pressing 'Enter'
+                onSubmitted: (_) =>
+                    _fetchHotels(), // ✅ Search when pressing 'Enter'
                 decoration: const InputDecoration(
                   hintText: "Search hotel...",
                   border: InputBorder.none,
@@ -180,44 +206,79 @@ class _SearchScreenState extends State<SearchScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(child: Container(width: 50, height: 5, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+                    Center(
+                      child: Container(
+                        width: 50,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 20),
-                    const Center(child: Text("Filter By", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
+                    const Center(
+                      child: Text(
+                        "Filter By",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 25),
-                    
-                    Text("Price Range: \$${_priceRange.start.round()} - \$${_priceRange.end.round()}", style: const TextStyle(fontWeight: FontWeight.bold)),
+
+                    Text(
+                      "Price Range: \$${_priceRange.start.round()} - \$${_priceRange.end.round()}",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     RangeSlider(
                       values: _priceRange,
                       max: 2000,
                       activeColor: const Color(0xFF3056D3),
-                      onChanged: (val) => setModalState(() => _priceRange = val),
+                      onChanged: (val) =>
+                          setModalState(() => _priceRange = val),
                     ),
-                    
-                    const Text("Location", style: TextStyle(fontWeight: FontWeight.bold)),
+
+                    const Text(
+                      "Location",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Wrap(
                       spacing: 10,
-                      children: ["Sen Sok", "Daun Penh", "Phnom Penh"].map((loc) {
+                      children: ["Sen Sok", "Daun Penh", "Phnom Penh"].map((
+                        loc,
+                      ) {
                         bool isSel = _selectedLocation == loc;
                         return ChoiceChip(
                           label: Text(loc),
                           selected: isSel,
                           selectedColor: const Color(0xFF3056D3),
-                          labelStyle: TextStyle(color: isSel ? Colors.white : Colors.black),
-                          onSelected: (_) => setModalState(() => _selectedLocation = loc),
+                          labelStyle: TextStyle(
+                            color: isSel ? Colors.white : Colors.black,
+                          ),
+                          onSelected: (_) =>
+                              setModalState(() => _selectedLocation = loc),
                         );
                       }).toList(),
                     ),
-                    
+
                     const SizedBox(height: 20),
-                    const Text("Facilities", style: TextStyle(fontWeight: FontWeight.bold)),
-                    ..._facilities.keys.map((f) => CheckboxListTile(
-                      title: Text(f),
-                      value: _facilities[f],
-                      activeColor: const Color(0xFF3056D3),
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (val) => setModalState(() => _facilities[f] = val!),
-                    )),
-                    
+                    const Text(
+                      "Facilities",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    ..._facilities.keys.map(
+                      (f) => CheckboxListTile(
+                        title: Text(f),
+                        value: _facilities[f],
+                        activeColor: const Color(0xFF3056D3),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) =>
+                            setModalState(() => _facilities[f] = val!),
+                      ),
+                    ),
+
                     const SizedBox(height: 30),
                     SizedBox(
                       width: double.infinity,
@@ -225,13 +286,21 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF3056D3),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
                         ),
                         onPressed: () {
                           Navigator.pop(context);
                           _fetchHotels(); // ✅ Re-fetch with new filters
                         },
-                        child: const Text("Apply Filter", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          "Apply Filter",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -260,8 +329,17 @@ class _SearchScreenState extends State<SearchScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(hotel.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-            Text("\$${hotel.price}", style: const TextStyle(color: Color(0xFF3056D3), fontWeight: FontWeight.bold)),
+            Text(
+              hotel.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              "\$${hotel.price}",
+              style: const TextStyle(
+                color: Color(0xFF3056D3),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         Text(hotel.location, style: const TextStyle(color: Colors.grey)),
@@ -277,7 +355,10 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           Icon(Icons.search_off, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          const Text("No hotels found matching your search.", style: TextStyle(color: Colors.grey)),
+          const Text(
+            "No hotels found matching your search.",
+            style: TextStyle(color: Colors.grey),
+          ),
         ],
       ),
     );

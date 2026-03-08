@@ -17,7 +17,7 @@ class MessageScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          "Message",
+          "Messages",
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -27,25 +27,18 @@ class MessageScreen extends StatelessWidget {
           // Search Bar
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.search, color: Colors.grey),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: "Search...",
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.tune, color: Colors.grey),
-                ],
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: "Search conversations...",
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                suffixIcon: const Icon(Icons.tune, color: Colors.grey),
+                fillColor: Colors.grey[100],
+                filled: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
@@ -153,8 +146,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _showEmoji = false;
 
   List<Map<String, dynamic>> _messages = [];
-  
-  get SharedPreferences => null;
 
   @override
   void initState() {
@@ -167,6 +158,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final prefs = await SharedPreferences.getInstance();
     final messagesJson = json.encode(_messages);
     await prefs.setString('chat_${widget.userName}', messagesJson);
+  }
+
+  Widget _buildInputArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Colors.grey[100],
+      child: Row(
+        children: [
+          IconButton(
+            icon: Icon(
+              _showEmoji ? Icons.keyboard : Icons.emoji_emotions_outlined,
+              color: Colors.grey[600],
+            ),
+            onPressed: () => setState(() => _showEmoji = !_showEmoji),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                hintText: "Type a message",
+                border: InputBorder.none,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.send, color: Colors.blue),
+            onPressed: _sendMessage,
+          ),
+        ],
+      ),
+    );
   }
 
   // Load messages from local storage
@@ -194,6 +216,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _controller.clear();
     _scrollToBottom();
     _saveMessages(); // Save messages after sending
+  }
+
+  Widget _buildMessageBubble(Map<String, dynamic> message) {
+    bool isMe = message['isMe'] == true;
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.blue[100] : Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          children: [
+            Text(message['text'], style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 4),
+            Text(
+              message['time'],
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _scrollToBottom() {
@@ -244,70 +297,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
               itemBuilder: (_, i) {
-                final msg = _messages[i];
-                return Align(
-                  alignment: msg["isMe"]
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: msg["isMe"]
-                          ? const Color(0xFF3056D3)
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Text(
-                      msg["text"],
-                      style: TextStyle(
-                        color: msg["isMe"] ? Colors.white : Colors.black,
-                      ),
-                    ),
-                  ),
-                );
+                return _buildMessageBubble(_messages[i]);
               },
             ),
           ),
 
-          // Reply Bar + Emoji Picker
-          Column(
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.sentiment_satisfied_alt),
-                    onPressed: () => setState(() => _showEmoji = !_showEmoji),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      onTap: () => setState(() => _showEmoji = false),
-                      decoration: const InputDecoration(
-                        hintText: "Write a reply",
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Color(0xFF3056D3)),
-                    onPressed: _sendMessage,
-                  ),
-                ],
+          // Reply bar + emoji picker (replaced by reusable method)
+          _buildInputArea(),
+          if (_showEmoji)
+            SizedBox(
+              height: 300,
+              child: EmojiPicker(
+                onEmojiSelected: (_, emoji) {
+                  _controller.text += emoji.emoji;
+                },
               ),
-              Offstage(
-                offstage: !_showEmoji,
-                child: SizedBox(
-                  height: 300,
-                  child: EmojiPicker(
-                    onEmojiSelected: (_, emoji) {
-                      _controller.text += emoji.emoji;
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
         ],
       ),
     );
