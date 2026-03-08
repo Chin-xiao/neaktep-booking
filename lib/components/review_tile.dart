@@ -3,11 +3,42 @@ import 'package:intl/intl.dart';
 import '../utils/models.dart';
 import '../utils/app_colors.dart';
 import 'safe_network_image.dart';
+import '../services/auth_service.dart';
 
 class ReviewTile extends StatelessWidget {
   final Review review;
+  final AuthService _authService = AuthService();
 
-  const ReviewTile({super.key, required this.review});
+  ReviewTile({super.key, required this.review});
+
+  /// Convert relative storage paths to full URLs with cache-busting
+  String _getAvatarUrl(String avatarPath) {
+    if (avatarPath.isEmpty) {
+      debugPrint('⚠️  Review Avatar: Empty path');
+      return '';
+    }
+
+    // Already a full URL
+    if (avatarPath.startsWith('http')) {
+      final url = '$avatarPath?t=${DateTime.now().millisecondsSinceEpoch}';
+      debugPrint('✅ Review Avatar (full URL): $url');
+      return url;
+    }
+
+    // Relative path - prepend storage base URL
+    if (avatarPath.startsWith('/')) {
+      final url =
+          '${_authService.storageBaseUrl}$avatarPath?t=${DateTime.now().millisecondsSinceEpoch}';
+      debugPrint('✅ Review Avatar (relative /): $url');
+      return url;
+    }
+
+    // Path without leading slash - add it
+    final url =
+        '${_authService.storageBaseUrl}/$avatarPath?t=${DateTime.now().millisecondsSinceEpoch}';
+    debugPrint('✅ Review Avatar (relative): $url');
+    return url;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,8 +52,8 @@ class ReviewTile extends StatelessWidget {
               backgroundColor: Colors.grey[200],
               child: ClipOval(
                 child: SafeNetworkImage(
-                  url: review.userAvatar, 
-                  width: 44, 
+                  url: _getAvatarUrl(review.userAvatar),
+                  width: 44,
                   height: 44,
                 ),
               ),
@@ -34,7 +65,10 @@ class ReviewTile extends StatelessWidget {
                 children: [
                   Text(
                     review.userName,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                   Text(
                     DateFormat('MMM dd, yyyy').format(review.createdAt),

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-// ✅ 1. IMPORT FIX: 
+// ✅ 1. IMPORT FIX:
 // Ensure this points to the correct location of your detail screen file.
-import '../pages/detail_page.dart'; 
+import '../pages/detail_page.dart';
 import '../pages/filter_page.dart';
 import '../pages/search_page.dart';
 import '../pages/reviews_page.dart';
 import '../pages/facility_page.dart';
+import '../screens/booking_summary_screen.dart';
 import '../utils/models.dart';
 
 class AppRoutes {
@@ -34,14 +35,16 @@ class AppRoutes {
   /// Passes the 'hotel' object into the named parameter 'hotel'.
   static Route<void> toDetail(Hotel hotel) {
     return _fadeScale(
-      HotelDetailScreen(hotel: hotel), // ✅ This calls the class inside detail_page.dart
+      HotelDetailScreen(
+        hotel: hotel,
+      ), // ✅ This calls the class inside detail_page.dart
       settings: const RouteSettings(name: detail),
     );
   }
 
-  static Route<void> toReviews() {
+  static Route<void> toReviews({String? hotelId}) {
     return _slideFromRight(
-      const ReviewsPage(),
+      ReviewsPage(hotelId: hotelId),
       settings: const RouteSettings(name: reviews),
     );
   }
@@ -50,6 +53,13 @@ class AppRoutes {
     return _slideFromRight(
       const FacilityPage(),
       settings: const RouteSettings(name: facilities),
+    );
+  }
+
+  static Route<void> toBookingSummary(Hotel hotel) {
+    return _slideFromRight(
+      BookingSummaryScreen(hotel: hotel),
+      settings: const RouteSettings(name: '/bookingSummary'),
     );
   }
 
@@ -68,7 +78,7 @@ class AppRoutes {
           begin: const Offset(0.15, 0),
           end: Offset.zero,
         ).chain(CurveTween(curve: Curves.easeOutCubic));
-        
+
         return SlideTransition(
           position: animation.drive(offsetTween),
           child: FadeTransition(opacity: animation, child: child),

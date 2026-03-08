@@ -1,62 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Ensure these paths match your project structure
 import '../utils/app_colors.dart';
+import '../utils/app_typography.dart';
+import '../utils/app_spacing.dart';
+import '../components/app_input_field.dart';
+import '../components/app_widgets.dart';
 import '../utils/models.dart';
 import '../routes/app_routes.dart';
 import '../components/safe_network_image.dart';
-
-// --- 1. HOTEL SERVICE ---
-class HotelService {
-  static const String baseUrl = "https://foods-tunes-vessel-leasing.trycloudflare.com/api";
-
-  Future<Map<String, String>> _getHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? token = prefs.getString('auth_token');
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
-
-  Future<List<Hotel>> searchHotels({
-    String? query,
-    double? minPrice,
-    double? maxPrice,
-    int? rating,
-    List<String>? facilities,
-    String? location,
-  }) async {
-    try {
-      final Map<String, String> params = {};
-      if (query != null && query.isNotEmpty) params['search'] = query;
-      if (minPrice != null && minPrice > 0) params['min_price'] = minPrice.toString();
-      if (maxPrice != null && maxPrice < 5000) params['max_price'] = maxPrice.toString();
-      if (rating != null && rating > 0) params['rating'] = rating.toString();
-      if (location != null && location.isNotEmpty) params['location'] = location;
-
-      final uri = Uri.parse('$baseUrl/hotels/search').replace(queryParameters: params);
-      final response = await http.get(uri, headers: await _getHeaders());
-
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-        final List<dynamic> hotelsJson = (decoded is Map && decoded.containsKey('data')) 
-            ? decoded['data'] 
-            : (decoded is List ? decoded : []);
-        return hotelsJson.map((json) => Hotel.fromJson(json)).toList();
-      }
-      return [];
-    } catch (e) {
-      debugPrint('❌ Search Service Error: $e');
-      return [];
-    }
-  }
-}
+import '../services/location_service.dart';
+import '../services/hotel_service.dart';
 
 // --- 2. SEARCH PAGE UI ---
 class SearchPage extends StatefulWidget {
@@ -68,6 +23,7 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final HotelService _hotelService = HotelService();
+  final LocationService _locationService = LocationService();
   late FilterState _filters;
   final TextEditingController _controller = TextEditingController();
   Timer? _debounce;
@@ -76,6 +32,7 @@ class _SearchPageState extends State<SearchPage> {
   List<Hotel> _results = const [];
   String _query = '';
   bool _loadingResults = false;
+  bool _gettingLocation = false;
 
   @override
   void initState() {
@@ -87,7 +44,7 @@ class _SearchPageState extends State<SearchPage> {
       selectedFacilities: [],
       rating: 0,
     );
-    _runSearch(); 
+    _runSearch();
   }
 
   @override
@@ -104,9 +61,10 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<void> _runSearch() async {
+    debugPrint("🔍 Running search with query: '$_query'");
     if (!mounted) return;
     setState(() => _loadingResults = true);
-    
+
     final currentToken = ++_searchToken;
     final results = await _hotelService.searchHotels(
       query: _query.trim(),
@@ -115,13 +73,67 @@ class _SearchPageState extends State<SearchPage> {
       rating: _filters.rating,
       location: _filters.location,
     );
-    
+
+    debugPrint("🔍 Search results: ${results.length} hotels");
     if (!mounted || currentToken != _searchToken) return;
-    
+
     setState(() {
       _results = results;
       _loadingResults = false;
     });
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _gettingLocation = true);
+
+    try {
+      final locationData = await _locationService
+          .getCurrentLocationWithAddress();
+
+      if (locationData != null && mounted) {
+        setState(() {
+          _filters = FilterState(
+            minPrice: _filters.minPrice,
+            maxPrice: _filters.maxPrice,
+            rating: _filters.rating,
+            selectedFacilities: _filters.selectedFacilities,
+            location: locationData['address'] ?? '',
+          );
+        });
+
+        // Run search with new location
+        _runSearch();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Location set to: ${locationData['address']}'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to get current location. Please check permissions and try again.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error getting location: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error getting location. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _gettingLocation = false);
+      }
+    }
   }
 
   @override
@@ -130,30 +142,38 @@ class _SearchPageState extends State<SearchPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Discover Stays', 
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Discover Stays',
+          style: AppTypography.titleLarge.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.pop(context),
+          color: AppColors.textPrimary,
         ),
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          Expanded(
-            child: _loadingResults 
-              ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-              : _results.isEmpty 
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _results.length,
-                      itemBuilder: (context, index) => _buildHotelCard(_results[index]),
-                    ),
-          ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildSearchBar()),
+          if (_loadingResults)
+            SliverFillRemaining(child: Center(child: LoadingState()))
+          else if (_results.isEmpty)
+            SliverFillRemaining(child: _buildEmptyState())
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildHotelCard(_results[index], index),
+                  childCount: _results.length,
+                ),
+              ),
+            ),
+          SliverToBoxAdapter(child: SizedBox(height: AppSpacing.spacingXl)),
         ],
       ),
     );
@@ -162,108 +182,133 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: TextField(
-        controller: _controller,
-        onChanged: _onQueryChanged,
-        decoration: InputDecoration(
-          hintText: 'Search destinations...',
-          prefixIcon: const Icon(Icons.search, color: AppColors.primary),
-          suffixIcon: Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.tune, color: AppColors.primary, size: 20),
-              onPressed: () async {
-                final result = await Navigator.push(context, AppRoutes.toFilter(_filters));
-                if (result != null && result is FilterState) {
+      child: Row(
+        children: [
+          Expanded(
+            child: AppSearchField(
+              hint: 'Search destinations, hotels...',
+              controller: _controller,
+              onChanged: _onQueryChanged,
+              showFilterIcon: true,
+              onFilterTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  AppRoutes.toFilter(_filters),
+                );
+                if (result != null) {
                   setState(() => _filters = result);
                   _runSearch();
                 }
               },
             ),
           ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(vertical: 0),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: IconButton(
+              icon: _gettingLocation
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.my_location, color: Colors.white),
+              onPressed: _gettingLocation ? null : _getCurrentLocation,
+              tooltip: 'Use current location',
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          const Text(
-            "No hotels found matching your search.",
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
+    return EmptyState(
+      icon: Icons.hotel_outlined,
+      title: 'No Hotels Found',
+      subtitle:
+          'Try changing your search criteria or filters to find available stays',
+      actionButton: OutlinedButton.icon(
+        onPressed: () {
+          _controller.clear();
+          _query = '';
+          _filters = FilterState(
+            minPrice: 0.0,
+            maxPrice: 2000.0,
+            location: '',
+            selectedFacilities: [],
+            rating: 0,
+          );
+          _runSearch();
+        },
+        icon: const Icon(Icons.refresh),
+        label: const Text('Reset Search'),
       ),
     );
   }
 
-  Widget _buildHotelCard(Hotel hotel) {
+  Widget _buildHotelCard(Hotel hotel, int index) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04), 
-            blurRadius: 10, 
-            offset: const Offset(0, 4)
-          )
-        ],
+        color: AppColors.surface,
+        borderRadius: AppSpacing.borderRadiusLg,
+        boxShadow: [AppColors.softShadow],
+        border: Border.all(color: AppColors.borderLight, width: 1),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        // ✅ Uses the fixed AppRoutes that handles the Hero transition
+        borderRadius: AppSpacing.borderRadiusLg,
         onTap: () => Navigator.of(context).push(AppRoutes.toDetail(hotel)),
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: AppSpacing.paddingLg,
           child: Row(
             children: [
+              // Hotel Image
               ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                // ✅ FIXED: Using 'hotel.image' and SafeNetworkImage
+                borderRadius: AppSpacing.borderRadiusLg,
                 child: SafeNetworkImage(
-                  url: hotel.image, 
-                  width: 90, 
-                  height: 90,
+                  url: hotel.image,
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.cover,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
+              // Hotel Info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hotel.name, 
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      hotel.name,
+                      style: AppTypography.titleLarge.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.location_on, color: Colors.grey, size: 14),
+                        Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            hotel.location, 
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            hotel.location,
+                            style: AppTypography.labelSmall.copyWith(
+                              color: AppColors.textMuted,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -274,22 +319,50 @@ class _SearchPageState extends State<SearchPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '\$${hotel.price.toStringAsFixed(0)}', 
-                          style: const TextStyle(
-                            color: AppColors.primary, 
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16
-                          )
-                        ),
-                        Row(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.star, color: Colors.amber, size: 16),
                             Text(
-                              " ${hotel.rating}", 
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)
+                              '\$${hotel.price.toStringAsFixed(0)}',
+                              style: AppTypography.titleLarge.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            Text(
+                              'per night',
+                              style: AppTypography.labelSmall.copyWith(
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: AppColors.warning,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${hotel.rating}',
+                                style: AppTypography.labelSmall.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.warning,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
