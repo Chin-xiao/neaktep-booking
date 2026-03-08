@@ -6,7 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 class AuthService {
   final String baseUrl =
-      'https://viewed-printers-fax-before.trycloudflare.com/api';
+      'https://participant-cubic-pierre-judy.trycloudflare.com/api';
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();

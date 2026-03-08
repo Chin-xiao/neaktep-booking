@@ -11,7 +11,7 @@ import '../utils/models.dart';
 class HotelService {
   // ✅ Base URL for your Laravel API
   static const String baseUrl =
-      "https://viewed-printers-fax-before.trycloudflare.com/api";
+      "https://participant-cubic-pierre-judy.trycloudflare.com/api";
 
   /// Helper to generate headers with the current Auth Token from SharedPreferences
   Future<Map<String, String>> _getHeaders() async {
